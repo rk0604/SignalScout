@@ -1,0 +1,20 @@
+.dashboard-container {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    grid-template-rows: auto auto;
+    gap: 20px;
+    padding: 20px;
+    background: #121212;
+    color: white;
+  }
+  
+  .stats-section {
+    display: flex;
+    gap: 15px;
+    grid-column: span 2;
+  }
+  
+  .chart-section {
+    grid-column: span 2;
+  }
+  

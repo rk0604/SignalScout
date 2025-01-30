@@ -1,0 +1,32 @@
+/*---------------------------------------------- Following is the styles for the statsCard comopnent ------------------------------------------------------------*/
+.stats-card {
+    background: linear-gradient(45deg, #e81cff, #40c9ff);
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+  }
+  
+/*---------------------------------------------- tradeHistory Component ------------------------------------------------------------*/
+
+.trade-history-card {
+  background: #1a1a2e;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(151, 65, 252, 0.2);
+}
+/*---------------------------------------------- chartCard Component ------------------------------------------------------------*/
+
+.chart-card {
+  background: #121233;
+  padding: 15px;
+  border-radius: 10px;
+}
+.chart-placeholder {
+  height: 200px;
+  background: #1a1a2e;
+}
+
+
+
+
+
