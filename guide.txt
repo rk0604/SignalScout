@@ -1,0 +1,7 @@
+cd backend
+1. virtual enviornment creation - python -m venv venv
+2. virtual enviornment activation - venv\Scripts\activate    
+
+
+cd frontend
+1. npm run dev
