@@ -1,25 +1,32 @@
 
-import DisplayHoldings from "../portfolio_component/holdings";
-import StatsCard from "../chart_component/StatsCard";
+// import DisplayHoldings from "../portfolio_component/holdings";
+// import StatsCard from "../chart_component/StatsCard";
 import TradeHistory from "../chart_component/TradeHistory";
-import ChartDisplay from "../chart_component/ChartDisplay";
+import ReuseCard from "../chart_component/ui_component";
 import "./dashboard.css";
 
 const Dashboard = () => {
   return (
     <div className="dashboard-container">
       <div className="stats-section">
-        <StatsCard title="Valid Price" value="$265.49" />
-        <StatsCard title="Algo Status" value="Active" />
+        <ReuseCard>
+          
+        </ReuseCard>
       </div>
       <div className="chart-section">
-        <ChartDisplay />
+        <ReuseCard>
+          
+        </ReuseCard>
       </div>
       <div className="holdings-section">
-        <DisplayHoldings />
+        <ReuseCard>
+          
+        </ReuseCard>
       </div>
       <div className="trade-history-section">
-        <TradeHistory />
+        <ReuseCard>
+          <TradeHistory/>
+        </ReuseCard>
       </div>
     </div>
   );

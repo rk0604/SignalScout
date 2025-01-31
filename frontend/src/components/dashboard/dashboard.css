@@ -1,20 +1,78 @@
+/* Reset default margin and padding to remove white border */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0d0d0d; /* Dark theme */
+  color: #ffffff;
+  font-family: 'Inter', sans-serif;
+}
+
 .dashboard-container {
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    grid-template-rows: auto auto;
-    gap: 20px;
-    padding: 20px;
-    background: #121212;
-    color: white;
+  display: grid;
+  grid-template-areas:
+    'chart chart stats'
+    'holdings trades stats';
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: auto;
+  gap: 20px;
+  padding: 20px;
+  width: 100vw;
+  height: 100vh;
+}
+
+.chart-section {
+  grid-area: chart;
+  background: #111;
+  border-radius: 12px;
+  height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* border: 2px dashed #444; */
+}
+
+.stats-section {
+  grid-area: stats;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-section {
+  /* background: linear-gradient(135deg, #6a11cb, #2575fc); */
+  padding: 0px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.holdings-section, .trade-history-section {
+  background: #111;
+  border-radius: 12px;
+  padding: 0px;
+  /* border: 2px dashed #444; */
+  height: 200px;
+}
+
+.holdings-section {
+  grid-area: holdings;
+}
+
+.trade-history-section {
+  grid-area: trades;
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    grid-template-areas:
+      'chart'
+      'stats'
+      'holdings'
+      'trades';
+    grid-template-columns: 1fr;
   }
-  
-  .stats-section {
-    display: flex;
-    gap: 15px;
-    grid-column: span 2;
-  }
-  
-  .chart-section {
-    grid-column: span 2;
-  }
-  
+}
