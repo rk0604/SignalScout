@@ -1,31 +1,60 @@
-/*---------------------------------------------- Following is the styles for the statsCard comopnent ------------------------------------------------------------*/
-.stats-card {
-    background: linear-gradient(45deg, #e81cff, #40c9ff);
-    padding: 15px;
-    border-radius: 10px;
-    text-align: center;
+/*Below is the styling for the various card compoennts*/
+.reuse-card{
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  padding: 5px;
+  box-shadow: rgba(151, 65, 252, 0.2) 0 15px 30px -5px;
+  background-image: linear-gradient(144deg,#AF40FF, #5B42F3 50%,#00DDEB);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.reuse-card .reuse-placeholder {
+  background: rgb(5, 6, 45);
+  border-radius: 17px;
+  width: 100%;
+  height: 100%;
+}
+
+.stats-card .stats-title,
+.stats-card .stats-value,
+.trade-history-card h3,
+.holdings-card h3,
+.valid-price-card h3,
+.algo-status-card h3 {
+  color: #ffffff;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    grid-template-areas:
+      'chart'
+      'stats'
+      'holdings'
+      'trades';
+    grid-template-columns: 1fr;
   }
-  
-/*---------------------------------------------- tradeHistory Component ------------------------------------------------------------*/
-
-.trade-history-card {
-  background: #1a1a2e;
-  padding: 15px;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(151, 65, 252, 0.2);
-}
-/*---------------------------------------------- chartCard Component ------------------------------------------------------------*/
-
-.chart-card {
-  background: #121233;
-  padding: 15px;
-  border-radius: 10px;
-}
-.chart-placeholder {
-  height: 200px;
-  background: #1a1a2e;
 }
 
+/*-----------------------------------------------Below is all the styling for the TradeHistory Component --------------------------------------------------------------------*/
+.trade-history-card{
+  margin: 0px auto !important;
+  padding: 10px;
+}
+
+.trade-history-card ul {
+  list-style: none;
+  padding-top: 5px;
+}
+
+.trade-history-card li {
+  text-align: left;
+  margin: 3px 0;
+}
 
 
 
