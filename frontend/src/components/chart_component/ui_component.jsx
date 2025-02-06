@@ -12,7 +12,7 @@ const ReuseCard = ({ children }) => {
 };
 
 ReuseCard.propTypes = {
-  children: PropTypes.node.isRequired,
+  children: PropTypes.node, //maybe set to required
 };
 
 export default ReuseCard;

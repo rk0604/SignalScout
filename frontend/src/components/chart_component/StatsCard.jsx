@@ -1,9 +1,10 @@
 import PropTypes from "prop-types";
 import './chartComponent.css';
 
-const StatsCard = ({ title, value }) => {
+function StatsCard({ title, value }) {
   return (
     <div className="stats-card">
+      <h3>Stats</h3>
       <p className="stats-title">{title}</p>
       <p className="stats-value">{value}</p>
     </div>
@@ -16,3 +17,6 @@ StatsCard.prototype= {
 }
 
 export default StatsCard;
+
+
+

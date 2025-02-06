@@ -1,7 +1,12 @@
 .holdings-card {
-    background: #1a1a2e;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(151, 65, 252, 0.2);
+  margin: 0px auto !important;
+  padding: 10px;
   }
+
+  .ibm-plex-sans-medium {
+    font-family: "IBM Plex Sans", serif;
+    font-weight: 500;
+    font-style: normal;
+  }
+  
   

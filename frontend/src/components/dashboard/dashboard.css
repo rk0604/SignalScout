@@ -26,7 +26,6 @@ body {
 
 .chart-section {
   grid-area: chart;
-  background: #111;
   border-radius: 12px;
   height: 300px;
   display: flex;
@@ -51,11 +50,11 @@ body {
 }
 
 .holdings-section, .trade-history-section {
-  background: #111;
   border-radius: 12px;
   padding: 0px;
   /* border: 2px dashed #444; */
   height: 200px;
+  max-height: 200px;
 }
 
 .holdings-section {

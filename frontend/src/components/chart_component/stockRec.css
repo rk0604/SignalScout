@@ -1,0 +1,85 @@
+/*RecContainer styling*/
+
+.rec-container {
+    width: 150px;
+    background: linear-gradient(#0a0a23, #0a0a23) padding-box,
+                linear-gradient(145deg, #e81cff, #40c9ff) border-box;
+    border: 2px solid transparent;
+    padding: 20px;
+    font-size: 16px;
+    font-family: "IBM Plex Sans", sans-serif;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    align-items: center;
+    border-radius: 16px;
+    text-align: center;
+    transition: 0.3s;
+    align-items: center;
+}
+
+
+
+.rec-container:hover {
+    transform: scale(1.05);
+    cursor: pointer;
+}
+
+.rec-title {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.rec-rating {
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+/*---------------------------------------------------------- Recommendations component stylingg------------------------------------*/
+.recommend-card {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(#0a0a23, #0a0a23) padding-box,
+                linear-gradient(145deg, #e81cff, #40c9ff) border-box;
+    border: 2px solid transparent;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 16px;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.recommend-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+    text-transform: uppercase;
+    color: white;
+}
+
+.recommend-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content:left; 
+    align-items:start;
+    gap: 25px;
+    padding: 10px;
+    width: 100%;
+}
+
+
+
+
+
+
+
+
+
+

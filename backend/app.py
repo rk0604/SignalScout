@@ -10,10 +10,9 @@ app = Flask(__name__)
 
 # path and env variable load
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
-DATA_PATH = "data/stock_prices.csv"
 
 # Restrict CORS to only allow requests from the frontend
-CORS(app, resources={r"/*": {"origins": FRONTEND_URL}})
+CORS(app, resources={r"/*": {"origins": FRONTEND_URL}}, supports_credentials=True)
 
 # ----------------------------------------------- helper functions -------------------------------------------------------------------------------
 def load_data():
@@ -33,7 +32,18 @@ def generate_trading_signals(df):
     return df[df["Crossover"]]
 
 
-# ----------------------------------------------- routes -------------------------------------------------------------------------------
+# ----------------------------------------------- auth routes -------------------------------------------------------------------------------
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.json
+    return jsonify(data), 200
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.json
+    return jsonify(data), 200
+
+# ------------------------------------------------ trading routes -------------------------------------------------------------------------------
 
 @app.route('/get-holdings', methods=['POST'])
 def get_holdings():
