@@ -1,8 +1,7 @@
 
 import DisplayHoldings from "../portfolio_component/holdings";
-import StatsCard from "../chart_component/StatsCard";
+import QueryStock from "../chart_component/QueryStock";
 import { Recommendations } from "../chart_component/stock_rec";
-import TradeHistory from "../chart_component/TradeHistory";
 import ReuseCard from "../chart_component/ui_component";
 import "./dashboard.css";
 
@@ -21,7 +20,7 @@ const Dashboard = () => {
       </div>
       <div className="trade-history-section">
         <ReuseCard>
-          <TradeHistory/>
+          <QueryStock/>
         </ReuseCard>
       </div>
     </div>

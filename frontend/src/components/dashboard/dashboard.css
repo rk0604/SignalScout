@@ -6,11 +6,12 @@
 }
 
 body {
-  background-color: #0d0d0d; /* Dark theme */
+  background: linear-gradient(135deg, #121212, #1a1a1a);
   color: #ffffff;
   font-family: 'Inter', sans-serif;
 }
 
+/* 📌 Dashboard Grid Layout */
 .dashboard-container {
   display: grid;
   grid-template-areas:
@@ -24,38 +25,62 @@ body {
   height: 100vh;
 }
 
+/* 📊 Chart Section */
 .chart-section {
   grid-area: chart;
-  border-radius: 12px;
+  border-radius: 14px;
+  padding: 2px;
   height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* border: 2px dashed #444; */
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s ease-in-out;
 }
 
+
+/* 📊 Stats Section */
 .stats-section {
   grid-area: stats;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.stats-section {
-  /* background: linear-gradient(135deg, #6a11cb, #2575fc); */
-  padding: 0px;
-  border-radius: 12px;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 14px;
   text-align: center;
   font-weight: bold;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* 💰 Holdings & Trades */
 .holdings-section, .trade-history-section {
-  border-radius: 12px;
-  padding: 0px;
-  /* border: 2px dashed #444; */
-  height: 200px;
-  max-height: 200px;
+  border-radius: 14px;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  height: 220px;
+  max-height: 220px;
+  box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease-in-out;
 }
+
+/* 📊 Stats Section */
+.stats-section {
+  grid-area: stats;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  border-radius: 14px;
+  text-align: center;
+  font-weight: bold;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 
 .holdings-section {
   grid-area: holdings;
@@ -65,6 +90,7 @@ body {
   grid-area: trades;
 }
 
+/* 📱 Responsive Layout */
 @media (max-width: 768px) {
   .dashboard-container {
     grid-template-areas:
@@ -75,3 +101,52 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ----------------------------------------🎨 IBM Sans Font Rules -------------------------------------------------------------------------------------------- */
+.ibm-plex-sans-medium {
+  font-family: "IBM Plex Sans", serif;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.ibm-plex-sans-heavy-ov {
+  font-family: "IBM Plex Sans", serif;
+  font-weight: 800;
+  font-style: normal;
+  color: #ffcc00 !important;
+  font-size: 20px;
+  display: block;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1.20px;
+}
+
+.ibm-plex-sans-heavy {
+  font-family: "IBM Plex Sans", serif;
+  font-weight: 800;
+  font-style: normal;
+}
+
+.ibm-plex-sans-medium {
+  font-family: "IBM Plex Sans", serif;
+  font-weight: 500;
+  font-style: normal;
+}
+
+
+/* --------------------------------------🎛️ General Component Stylings ------------------------------------------------------------------------------------------------*/
+.close-btn {
+  padding: 10px;
+  border: 2px solid #ffcc00; /* Highlighted Yellow */
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  color: antiquewhite;
+}
+
+.close-btn:hover {
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+

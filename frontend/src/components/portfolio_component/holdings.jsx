@@ -52,9 +52,9 @@ export function DisplayHoldings(){
     }
 
 // --------------------------------------------------- Use effect hooks ------------------------------------------------------------------------------------------------
-    useEffect(() => {
-        fetchHoldings();
-    },[holdings]);
+    // useEffect(() => {
+    //     fetchHoldings();
+    // },[holdings]);
 
     return(
         <div className='holdings-container'>
