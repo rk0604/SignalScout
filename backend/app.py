@@ -173,6 +173,7 @@ def getRiskAnalysis():
         return jsonify({"error": "Invalid request format. Expected {'stock': 'TICKER'}"}), 400
     
     stock = request_data['stock']
+    ticker = yf.Ticker(stock)
     #fetch the data 
     today = date.today()
     data = yf.download(stock, start="2020-01-01", end=today) #get the data from 2020 start to present 
@@ -185,16 +186,32 @@ def getRiskAnalysis():
 
         # calculate voltaility by averaging the daily percent change in closing price
         volatility = data['Returns'].std() * (252**0.5)  # Annualized volatility
-        # how to interpret volatility:
-        # AMZN = 0.357 === 35.7% ----> so every year the stock will go 35.7% up or down,
-        # voltaltility of (<.15 == stable), (15-30% == moderate risk), (30-50% == high risk), (>50% == extreme risk)
-        print('volatility: ', volatility)
-        
         risk_analysis_to_send['volatility'] = volatility 
-        print(risk_analysis_to_send)
+        
+        # get important ratios
+        info = ticker.info
+        debt_to_equity = info.get('debtToEquity', "N/A") # 61.175 - AMZN
+        current_ratio = info.get('currentRatio', "N/A")# 1.089 - AMZN
+        quick_ratio = info.get('quickRatio', "N/A") #0.827 - AMZN
+        
+        #send to frontend
+        risk_analysis_to_send['debtToEquity'] = debt_to_equity 
+        risk_analysis_to_send['currentRatio'] = current_ratio 
+        risk_analysis_to_send['quickRatio'] = quick_ratio 
     
     return jsonify(risk_analysis_to_send), 200
+
+#use this route to update the user's holdings
+@app.route('/update-holdings', methods=['POST'])
+def updateHoldings():
+    request_data = request.get_json()
+    price = request_data['price']
+    ticker = request_data['ticker']
     
+    # input the form into postgres
+    
+    
+    return jsonify(request_data), 200
 
 
 

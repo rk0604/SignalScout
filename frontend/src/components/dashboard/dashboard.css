@@ -113,7 +113,7 @@ body {
   font-family: "IBM Plex Sans", serif;
   font-weight: 800;
   font-style: normal;
-  color: #ffcc00 !important;
+  /* color: #ffcc00 !important; */
   font-size: 20px;
   display: block;
   margin-bottom: 8px;

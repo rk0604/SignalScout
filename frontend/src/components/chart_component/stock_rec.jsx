@@ -15,6 +15,10 @@ export function Recommendations() {
   const API_URL = import.meta.env.VITE_API_URL;
   const [selectedStock, setSelectedStock] = useState("");
   const [recommendations, setRecommendations] = useState([]); 
+  const [holdingsUpdate, setHoldingsUpdate] = useState({
+    ticker:'',
+    price:'',
+  })
 
 
 // ------------------------------------------------------------ Main functions (backend interactions) --------------------------------------------------------------------------
@@ -49,6 +53,36 @@ export function Recommendations() {
     }
   }
 
+  //update holdings for a stock
+  const updateHoldings = async(e) =>{
+    e.preventDefault() // prevent page reload
+    try{
+      const response = await axios.post(`${API_URL}/update-holdings`, holdingsUpdate,{
+        withCredentials:true,
+        headers:{  "Content-Type": "application/json"}
+      });
+
+      if(response.status === 200){
+        console.log('response: ',response.data)
+      }
+
+    }catch(err){
+      const {response} = err;
+      if(response){
+        switch(response.status){
+          case 400:
+            console.log('invalid details')
+            break;
+          default:
+            console.warn('internal server error');
+            break;
+        }
+      } else{
+        console.log('err: ', err)
+      }
+    }
+  }
+
 //-------------------------------------------------------------- Helper functions ---------------------------------------------------------------------------------------
 
   // Corrected function to set the selected stock
@@ -56,6 +90,15 @@ export function Recommendations() {
     setSelectedStock(stock);
     setModalIsOpen(true);
   };
+
+  // handles the useState hook update for holdings
+  const handleHoldingsFormUpdate = (e) => {
+    setHoldingsUpdate(prevState => ({
+        ...prevState,
+        [e.target.name]: e.target.value
+    }));
+  };
+
 
   //main useEffect hook
   useEffect(() => {
@@ -107,7 +150,7 @@ export function Recommendations() {
             },
           }}
         >
-          <h2>{selectedStock}</h2>
+          <h2 className="stock-year">Ticker: {selectedStock}</h2>
 
           <div className="stock-content">
             <StockOverview stock={selectedStock}/>
@@ -119,6 +162,32 @@ export function Recommendations() {
 
           <div className="stock-content">
             {/* <StockHistoricalChart stock={selectedStock}/> */}
+          </div>
+
+          <div className="stock-content">
+          <form className="stock-holding-form" onChange={handleHoldingsFormUpdate} onSubmit={updateHoldings}>
+              <label className="stock-holding-form-label ibm-plex-sans-medium">
+                  Ticker:
+                  <input 
+                      type="text" 
+                      className="stock-holding-form-input ibm-plex-sans-medium" 
+                      value={holdingsUpdate.ticker} 
+                      name="ticker" 
+                      required 
+                  />
+              </label>
+              <label className="stock-holding-form-label ibm-plex-sans-medium">
+                  Buy Price:
+                  <input 
+                      type="number" 
+                      className="stock-holding-form-input ibm-plex-sans-medium" 
+                      name="price"    
+                      value={holdingsUpdate.price}  
+                      required 
+                  />
+              </label>
+              <button type="submit" className="ibm-plex-sans-medium">Update Holdings</button>
+          </form>
           </div>
 
           <button onClick={() => {

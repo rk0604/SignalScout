@@ -6,8 +6,10 @@ import { useState, useEffect } from 'react';
 // used to present the risk analysis for a stock 
 const StockRisk = ({stock}) =>{
     const API_URL = import.meta.env.VITE_API_URL;
-    const [riskAnalysis, setRiskAnalysis] = useState(''); //holds the backend processed risk analysis for a stock
     const [volatility, setVolatility] = useState(null); // holds the annualized volatility of a stock
+    const [debtToEquity, setDebtToEquity] = useState(null); // holds the debt to equity ratio
+    const [currentRatio, setCurrentRatio] = useState(null); // holds the current rati
+    const [quickRatio, setQuickRatio] = useState(null); // holds the quick ratio
 
 //-------------------------------------------------- routes ---------------------------------------------------------------------------------------
 
@@ -25,9 +27,12 @@ const StockRisk = ({stock}) =>{
             });
 
             if(response && response.status === 200){
-                console.log(`${response.data}`);
-                setVolatility(response.data.volatility)
-                setRiskAnalysis(response.data);
+                console.log(response.data);
+                const {volatility, debtToEquity, currentRatio, quickRatio} = response.data;
+                setVolatility(volatility)
+                setDebtToEquity(debtToEquity)
+                setCurrentRatio(currentRatio)
+                setQuickRatio(quickRatio)
             }
 
         }catch(err){
@@ -70,11 +75,29 @@ const StockRisk = ({stock}) =>{
         <>
         <div className='risk-info'>
            {volatility? (
-              <p className='ibm-plex-sans-heavy-ov'
-                style={{color: getColor(volatility)}}
-               ><span style={{ color: getColor(volatility) }} >Annual Volatility: </span>{volatility ? (volatility.toFixed(4)*100): "No data"}%</p>
+              <p className='ibm-plex-sans-heavy-ov'><span style={{ color: getColor(volatility) }} >Annual Volatility: </span>{volatility ? (volatility.toFixed(4)*100): "No data"}%</p>
            ):(
-              <p className='loading-text'>Fetching the risk analysis for: {stock}</p>
+              <p className='loading-text'>Fetching the volatility analysis for: {stock}</p>
+            )}
+
+            {/* Debt to Equity ratio */}
+            {debtToEquity? (
+                <p className='ibm-plex-sans-heavy-ov' style={{color: '#FFFFFF'}} ><span>Debt to Equity Ratio: </span>{debtToEquity ? (debtToEquity.toFixed(4)): "No data"}</p>
+            ):(
+                <p className='loading-text'>Fetching the debt to equity ratio for: {stock}</p>
+            )}
+
+            {/* Current ratio */}
+            {currentRatio? (
+                <p className='ibm-plex-sans-heavy-ov'><span>Current Ratio: </span>{currentRatio ? (currentRatio.toFixed(4)): "No data"}</p>
+            ):(
+                <p className='loading-text'>Fetching the current ratio for: {stock}</p>
+            )}
+
+            {quickRatio? (
+                <p className='ibm-plex-sans-heavy-ov'><span>Quick Ratio: </span>{quickRatio ? (quickRatio.toFixed(4)): "No data"}</p>
+            ):(
+                <p className='loading-text'>Fetching the quick ratio for: {stock}</p>
             )}
 
         </div>
