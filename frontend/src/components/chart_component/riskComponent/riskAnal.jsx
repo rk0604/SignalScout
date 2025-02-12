@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 const StockRisk = ({stock}) =>{
     const API_URL = import.meta.env.VITE_API_URL;
     const [riskAnalysis, setRiskAnalysis] = useState(''); //holds the backend processed risk analysis for a stock
+    const [volatility, setVolatility] = useState(null); // holds the annualized volatility of a stock
 
 //-------------------------------------------------- routes ---------------------------------------------------------------------------------------
 
@@ -24,7 +25,8 @@ const StockRisk = ({stock}) =>{
             });
 
             if(response && response.status === 200){
-                console.log(response.data);
+                console.log(`${response.data}`);
+                setVolatility(response.data.volatility)
                 setRiskAnalysis(response.data);
             }
 
@@ -56,9 +58,27 @@ const StockRisk = ({stock}) =>{
         return () => clearTimeout(timer); // reset the timer
     },[stock])
 
+    const getColor = (volatility) => {
+        if (volatility < 0.15) return "#7CFC00";
+        if (volatility >= 0.15 && volatility < 0.30) return "#0BDA51";
+        if (volatility > 0.30 && volatility < 0.5) return "#FA5F55";
+        if (volatility >= 0.5) return "#D2042D";
+        return "#000"; // Default case (optional)
+    };    
+
     return(
         <>
-        <h2>Stowing the risk analysis for {stock}</h2>
+        <div className='risk-info'>
+           {volatility? (
+              <p className='ibm-plex-sans-heavy-ov'
+                style={{color: getColor(volatility)}}
+               ><span style={{ color: getColor(volatility) }} >Annual Volatility: </span>{volatility ? (volatility.toFixed(4)*100): "No data"}%</p>
+           ):(
+              <p className='loading-text'>Fetching the risk analysis for: {stock}</p>
+            )}
+
+        </div>
+
         </>
     )
 }
