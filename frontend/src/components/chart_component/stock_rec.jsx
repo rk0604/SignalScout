@@ -70,7 +70,9 @@ export function Recommendations() {
     <div className="recommend-card">
       <h3 className="recommend-title">Recommendations</h3>
       <div className="recommend-grid">
-      {Object.entries(recommendations).map(([stock, data]) => (
+      {recommendations ?
+      (
+        Object.entries(recommendations).map(([stock, data]) => (
         <RecContainer 
           key={stock} 
           stock={stock} 
@@ -78,7 +80,11 @@ export function Recommendations() {
           indicator={data.indicator}
           onClick={chosenStock}
         />
-      ))}
+        ))
+    ):
+      <p className="loading-text">Loading stock recommendations</p>
+      
+      }
 
         <Modal 
           isOpen={modalIsOpen}

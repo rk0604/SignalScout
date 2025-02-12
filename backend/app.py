@@ -176,16 +176,14 @@ def getRiskAnalysis():
     #fetch the data 
     today = date.today()
     data = yf.download(stock, start="2020-01-01", end=today) #get the data from 2020 start to present 
-   
-    print('data:', data.columns) # to access data[('Close', 'AMZN')]
     
     if data.empty:
         return jsonify({"error": "Invalid stock ticker or no data available for the given period"}), 400
 
     if 'Close' in data.columns:
         data['Returns'] = data['Close'].pct_change() #"By what percentage did the stock price change compared to the previous day?"
-        print('returns: ',data['Returns'])
-        print('Close:', data['Close']) # gets the closing price on each day 1284 rows for 'AMZN'
+
+        # calculate voltaility by averaging the daily percent change in closing price
         volatility = data['Returns'].std() * (252**0.5)  # Annualized volatility
         # how to interpret volatility:
         # AMZN = 0.357 === 35.7% ----> so every year the stock will go 35.7% up or down,
@@ -193,6 +191,7 @@ def getRiskAnalysis():
         print('volatility: ', volatility)
         
         risk_analysis_to_send['volatility'] = volatility 
+        print(risk_analysis_to_send)
     
     return jsonify(risk_analysis_to_send), 200
     

@@ -93,8 +93,8 @@ export const StockOverview = ({ stock }) => {
             <div className="stock-info-column">
               <p><span className='ibm-plex-sans-heavy-ov'>Gross Profit:</span> ${latestData["Gross Profit"]?.toLocaleString() || "No Data"}</p>
               <p><span className='ibm-plex-sans-heavy-ov'>Total Expenses:</span> ${latestData["Total Expenses"]?.toLocaleString() || "No Data"}</p>
-              <p><span className='ibm-plex-sans-heavy-ov'>EPS:</span> ${latestData["Basic EPS"] || "No Data"}</p>
-              <p><span className='ibm-plex-sans-heavy-ov'>R&D:</span> ${latestData["Research And Development"]?.toLocaleString() || "No Data"}</p>
+              <p><span className='ibm-plex-sans-heavy-ov'>Operating Cash Flow:</span> ${additionalData["Operating Cash Flow"]?.toLocaleString() || "No Data"}</p>
+              <p><span className='ibm-plex-sans-heavy-ov'>Interest Expense:</span> ${latestData["Interest Expense"]?.toLocaleString() || "No Data"}</p>
             </div>
 
             {/* Column 3 (New Metrics) */}
@@ -102,15 +102,15 @@ export const StockOverview = ({ stock }) => {
               <p><span className='ibm-plex-sans-heavy-ov'>Market Cap:</span> ${additionalData["Market Cap"]?.toLocaleString() || "No Data"}</p>
               <p><span className='ibm-plex-sans-heavy-ov'>P/E Ratio:</span> {additionalData["PE Ratio"]?.toFixed(2) || "No Data"}</p>
               <p><span className='ibm-plex-sans-heavy-ov'>Dividends:</span> ${additionalData["Dividends Paid"]?.toLocaleString() || "No Data"}</p>
-              <p><span className='ibm-plex-sans-heavy-ov'>Operating Cash Flow:</span> ${additionalData["Operating Cash Flow"]?.toLocaleString() || "No Data"}</p>
+              <p><span className='ibm-plex-sans-heavy-ov'>Interest Income:</span> ${latestData["Interest Income"]?.toLocaleString() || "No Data"}</p>
             </div>
 
             {/* Column 4*/}
             <div className="stock-info-column">
-              <p><span className='ibm-plex-sans-heavy-ov'>Market Cap:</span> ${additionalData["Market Cap"]?.toLocaleString() || "No Data"}</p>
-              <p><span className='ibm-plex-sans-heavy-ov'>P/E Ratio:</span> {additionalData["PE Ratio"]?.toFixed(2) || "No Data"}</p>
-              <p><span className='ibm-plex-sans-heavy-ov'>Dividends:</span> ${additionalData["Dividends Paid"]?.toLocaleString() || "No Data"}</p>
-              <p><span className='ibm-plex-sans-heavy-ov'>Operating Cash Flow:</span> ${additionalData["Operating Cash Flow"]?.toLocaleString() || "No Data"}</p>
+              <p><span className='ibm-plex-sans-heavy-ov'>EPS:</span> ${latestData["Basic EPS"] || "No Data"}</p>
+              <p><span className='ibm-plex-sans-heavy-ov'>R&D:</span> ${latestData["Research And Development"]?.toLocaleString() || "No Data"}</p>
+              <p><span className='ibm-plex-sans-heavy-ov'>Cost of Revenue:</span> ${latestData["Cost Of Revenue"]?.toLocaleString() || "No Data"}</p>
+              <p><span className='ibm-plex-sans-heavy-ov'>Pretax Income:</span> ${latestData["Pretax Income"]?.toLocaleString() || "No Data"}</p>
             </div>
           </div>
         </>
