@@ -91,3 +91,70 @@
     margin: 20px auto;
 }
 
+/*Holdings update form styling*/
+/* Stock Holdings Form Container */
+.stock-holding-form {
+    max-width: 60%;
+    background: linear-gradient(135deg, #1a1a1a, #232323);
+    color: #fff;
+    padding: 25px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
+    margin: 20px auto;
+    transition: transform 0.3s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+/* Labels Styling */
+.stock-holding-form-label {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ffcc00;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+/* Input Fields */
+.stock-holding-form-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 18px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    outline: none;
+    transition: border 0.3s ease, background 0.3s ease;
+}
+
+/* Input Hover & Focus Effect */
+.stock-holding-form-input:hover,
+.stock-holding-form-input:focus {
+    border: 1px solid #ffcc00;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Submit Button */
+.stock-holding-form button {
+    background: #ffcc00;
+    color: #121212;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 12px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+/* Hover Effect for Button */
+.stock-holding-form button:hover {
+    background: #ffd633;
+    transform: scale(1.05);
+}
+
