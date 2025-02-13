@@ -9,6 +9,8 @@ import yfinance as yf
 import json
 import csv
 from datetime import datetime, date
+from flask_sqlalchemy import SQLAlchemy
+import bcrypt
 
 app = Flask(__name__)
 load_dotenv()
@@ -18,10 +20,24 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 # Restrict CORS to only allow requests from the frontend
 CORS(app, resources={r"/*": {"origins": FRONTEND_URL}}, supports_credentials=True)
 
+# ------------------------------------------------------- Configure PostgreSQL database URI -------------------------------------------------------------------
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+if not app.config['SQLALCHEMY_DATABASE_URI']:
+    raise ValueError("DATABASE_URL is not set or loaded correctly.")
+
+db = SQLAlchemy(app)
+
+class User(db.Model):
+    __tablename__ = "user_data"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(255), unique=True, nullable=False)
+
 # ----------------------------------------------- helper functions -------------------------------------------------------------------------------
-def load_data():
-    """Loads stock price data from CSV (for simplicity)"""
-    return pd.read_csv(DATA_PATH, parse_dates=["Date"], index_col="Date")
 
 def calculate_moving_averages(df):
     """Calculates 20-day and 50-day moving averages"""
@@ -36,16 +52,57 @@ def generate_trading_signals(df):
     return df[df["Crossover"]]
 
 
-# ----------------------------------------------- auth routes -------------------------------------------------------------------------------
+# ----------------------------------------------- auth routes -------------------------------------------------------------------------------------------------------------------------------------------------
+#{'email': 'Rishabk2004@gmail.com', 'password': 'password', 'phone': '2017058617'}
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
-    return jsonify(data), 200
+    print(data)
+    
+    # Validate required fields else early return 
+    if not data.get('email') or not data.get('phone') or not data.get('password'):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    password = data['password'].encode('utf-8')  
+    hashed_password = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')  # Convert bytes to string
+
+    user1 = User(email=data['email'].lower(), phone=data['phone'], password=hashed_password)
+    
+    try:
+        db.session.add(user1)  
+        db.session.commit() 
+        return jsonify({"message": "Successfully registered the user"}), 200
+    except Exception as e:
+        db.session.rollback()  # Rollback in case of error
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
-    return jsonify(data), 200
+
+    try: 
+        # Validate required fields
+        if not data.get('email') or not data.get('password'):
+            return jsonify({"error": "Missing required fields"}), 400
+        
+        email = data['email'].lower()
+        password = data['password'].encode('utf-8')
+
+        # Fetch the user by email
+        user = User.query.filter_by(email=email).first()  
+
+        # Check if user exists
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Validate password using bcrypt.checkpw()
+        if bcrypt.checkpw(password, user.password.encode('utf-8')):
+            return jsonify({"message": "Successful login"}), 200
+        else:
+            return jsonify({"error": "Invalid email or password"}), 400
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ------------------------------------------------ trading routes -------------------------------------------------------------------------------
 
