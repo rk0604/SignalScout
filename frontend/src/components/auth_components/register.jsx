@@ -37,7 +37,18 @@ const RegisterPage = () => {
       }
     } catch (err) {
       if (err.response) {
-        console.error("Error:", err.response.data);
+        switch(err.response.status){
+          case 400:
+            alert('invalid credentials')
+            console.log('invalid credentials')
+            break;
+          case 500:
+            alert('sorry we could not register you at this moment')
+            console.log('could not register user at this moment')
+            break;
+          default:
+            console.warn('internal server error')
+        }
       } else {
         console.error("Unexpected error:", err);
       }
@@ -106,7 +117,22 @@ export function LoginPage() {
             }
 
         }catch(err){
-            console.log(err);
+            const {response} = err;
+            if(response){
+              switch(response.status){
+                case 400:
+                  console.log('invalid credentials')
+                  alert('invalid credentials')
+                  break;
+                case 500:
+                  console.warn('internal server error', err)
+                  break;
+                default:
+                  console.log('internal server error: ', err)
+              }
+            } else{
+              console.warn('error: ', err)
+            }
         }
     }
 
