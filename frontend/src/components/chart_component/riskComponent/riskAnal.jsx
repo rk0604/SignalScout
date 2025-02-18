@@ -27,7 +27,7 @@ const StockRisk = ({stock}) =>{
             });
 
             if(response && response.status === 200){
-                console.log(response.data);
+                // console.log(response.data)
                 const {volatility, debtToEquity, currentRatio, quickRatio} = response.data;
                 setVolatility(volatility)
                 setDebtToEquity(debtToEquity)
@@ -91,13 +91,13 @@ const StockRisk = ({stock}) =>{
             {currentRatio? (
                 <p className='ibm-plex-sans-heavy-ov'><span>Current Ratio: </span>{currentRatio ? (currentRatio.toFixed(4)): "No data"}</p>
             ):(
-                <p className='loading-text'>Fetching the current ratio for: {stock}</p>
+                <p className='loading-text'>Unable to fetch the current ratio for: {stock}</p>
             )}
 
             {quickRatio? (
                 <p className='ibm-plex-sans-heavy-ov'><span>Quick Ratio: </span>{quickRatio ? (quickRatio.toFixed(4)): "No data"}</p>
             ):(
-                <p className='loading-text'>Fetching the quick ratio for: {stock}</p>
+                <p className='loading-text'>Unable to fetch the quick ratio for: {stock}</p>
             )}
 
         </div>

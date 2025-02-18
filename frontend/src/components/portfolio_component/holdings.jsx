@@ -9,74 +9,94 @@ export function DisplayHoldings(){
      * 3. Displays the user's holdings in a table
      */
     const [holdings, setHoldings] = useState([]); // holds the user's holdings, and gets updated when user buys/sells a stock
-
+    const [userEmail, setUserEmail] = useState('') // holds the user email fetched from the localstorage, needed for querying
 // ------------------------------------------------ Functions -------------------------------------------------------------------------------------------------------
     
     const API_URL = import.meta.env.VITE_API_URL;
 
     // used to fetch the user's holdings from the backend
     const fetchHoldings = async () => {
-        try{
-            const response = await axios.post(`${API_URL}/get-holdings`,{
-                withCredentials: true,
+        if (!userEmail) {
+            console.log('Invalid credentials for fetching user holdings');
+            return;
+        }
+        try {
+            const response = await axios.get(`${API_URL}/get-holdings`, {
+                params: { userEmail }, 
+                withCredentials: true, 
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                }
+            });
+    
+            if (response.status === 200) {
+                console.log(response.data.holdings);
+                setHoldings(response.data.holdings);
             }
-        });
-            if(response.status === 200){
-                console.log(response.data)
-                setHoldings(response.data);
-            }
-        } catch(err){
-            const {response} = err;
-            if(response){
-                switch(response.status){
+        } catch (err) {
+            const { response } = err;
+            if (response) {
+                switch (response.status) {
+                    case 400:
+                        console.log('invalid credentials')
+                        alert('invalid credentials')
+                        break;
                     case 401:
-                        console.log('unauthorized');
-                        alert('unauthorized');
+                        console.log('Unauthorized');
+                        alert('Unauthorized');
                         break;
                     case 500:
-                        console.log('internal server error');
-                        alert('internal server error');
+                        console.log('Internal server error');
+                        alert('Internal server error');
                         break;
                     default:
-                        console.log('unknown error');
-                        alert('unknown error');
+                        console.log('Unknown error');
                         break;
                 }
-            } else{
+            } else {
                 console.log(err);
-                // alert('internal server error')
             }
         }
-    }
+    };
+    
 
 // --------------------------------------------------- Use effect hooks ------------------------------------------------------------------------------------------------
-    // useEffect(() => {
-    //     fetchHoldings();
-    // },[holdings]);
+    useEffect(() => {
+        const userEmail = localStorage.getItem('email')
+        setUserEmail(userEmail)
+        const timer = setTimeout(() => {
+            fetchHoldings();
+          }, 500); // Delay execution to prevent rapid calls
+          return () => clearTimeout(timer);
+    },[]);
 
     return(
-        <div className='holdings-container'>
+        <div className="holdings-container">
             <div className="holdings-card">
-                <h3>Your Holdings</h3>
-                {holdings.length > 0 ?
-                    holdings.map((holding, index) => {
-                        return(
-                            <div key={index} className="stock-holding-container">
-                                <p>{holding.stock_name}</p>
-                                <p>{holding.stock_symbol}</p>
-                                <p>{holding.stock_quantity}</p>
-                                <p>{holding.stock_price}</p>
+                <div className="holdings-header">
+                    <h3>Your Holdings</h3>
+                    <button className="refreshButton" onClick={()=>{fetchHoldings()}} >Refresh Holdings</button>
+                </div>
+
+                {holdings.length > 0 ? (
+                    <div className="holdings-grid">
+                        {holdings.map((holding, index) => (
+                            <div key={index} className="holding-item ">
+                                <h2 className="holding-name ibm-plex-sans-heavy-ov"><u>({holding.ticker})</u></h2>
+                                <p><span className="holding-value">Shares: </span>{holding.num_shares}</p>
+                                <p><span className="holding-value">Average Price: </span>${holding.avg_price}</p>
+                                <p><span className="holding-value" style={{color: '#0BDA51'}} >Value of Holding: </span>${holding.value.toLocaleString()}</p>
                             </div>
-                        )
-                    })
-                    :
-                    <h4>Buy something first, broke ass</h4>
-                }
-                
+                        ))}
+                    </div>
+                ) : (
+                    <div className="no-holdings">
+                        <h4>Buy something first, broke ass</h4>
+                    </div>
+                )}
             </div>
         </div>
+
     )
 }
 

@@ -105,6 +105,7 @@ export function LoginPage() {
 
   const handleLogin = async(e) => {
     e.preventDefault();
+    localStorage.setItem('email',formdata.email)
         try{
             const response = await axios.post(`${API_URL}/login`, formdata, {
                 withCredentials:true,

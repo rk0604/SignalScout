@@ -11,8 +11,13 @@ import csv
 from datetime import datetime, date
 from flask_sqlalchemy import SQLAlchemy
 import bcrypt
+import uuid
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm.attributes import flag_modified
+
 
 app = Flask(__name__)
+app.config["DEBUG"] = True  # Enables hot reloading
 load_dotenv()
 # path and env variable load
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
@@ -36,6 +41,15 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     phone = db.Column(db.String(120), unique=True, nullable=False)
     password = db.Column(db.String(255), unique=True, nullable=False)
+
+class Holdings(db.Model):
+    __tablename__ = "user_holdings"
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = db.Column(db.String(120), unique=False, nullable=False)
+    ticker = db.Column(db.String(120), unique=False, nullable=False)
+    avg_price = db.Column(db.Numeric(precision=10, scale=2), unique=False, nullable=False)
+    num_shares = db.Column(db.Integer, unique=False, nullable=False)
+    value = db.Column(db.Numeric(precision=10, scale=2), unique=False, nullable=False)
 
 # ----------------------------------------------- helper functions -------------------------------------------------------------------------------
 
@@ -106,11 +120,6 @@ def login():
 
 # ------------------------------------------------ trading routes -------------------------------------------------------------------------------
 
-# gets the user's current stock holdings
-@app.route('/get-holdings', methods=['POST'])
-def get_holdings():
-    return jsonify({"holdings": "AAPL"}), 200
-
 # gets a specific stock's data
 @app.route('/fetch-stock-data', methods=['POST'])
 def fetch_specific_stock_data():
@@ -141,6 +150,7 @@ def fetch_specific_stock_data():
         "PE Ratio": stock_info.get("trailingPE"),  # P/E Ratio
         "Dividends Paid": stock.dividends.sum() if not stock.dividends.empty else None,
         "Operating Cash Flow": stock_info.get("operatingCashflow"),
+        "latest_price": stock.history(period="1d")["Close"].iloc[-1]
     }
 
     
@@ -152,7 +162,7 @@ def fetch_specific_stock_data():
         "additional_data": additional_data
     }), 200
 
-# use this route to fetch data 
+# use this route to fetch 30 recommendations of stock to buy
 @app.route('/fetch-recs', methods=['POST'])
 def fetchRecommendations():  
     rec_arr = {}  # Stores calculated buy/hold/sell values
@@ -211,13 +221,14 @@ def fetchRecommendations():
             break
         max_stock = max(stock_rec, key=lambda x: stock_rec[x]["indicator"])
         stock_recommendations_to_send[max_stock] = stock_rec.pop(max_stock)
-    
-    # print(stock_recommendations_to_send)
+
     # Early return if no stock recommendations were found
     if not stock_rec:
         return jsonify({"message": "Could not retrieve stock recommendations at this moment"}), 400
 
     return jsonify(stock_recommendations_to_send), 200
+
+# --------------------------------------------------------- RISK ANALYSIS STOCK -------------------------------------------------------------------------------------------
 
 # route to get the risk analysis for a stock
 @app.route('/fetch-risk-anal', methods=['POST'])
@@ -231,7 +242,7 @@ def getRiskAnalysis():
     
     stock = request_data['stock']
     ticker = yf.Ticker(stock)
-    #fetch the data 
+    #fetch the data from 2020-01-01 to present day
     today = date.today()
     data = yf.download(stock, start="2020-01-01", end=today) #get the data from 2020 start to present 
     
@@ -247,28 +258,122 @@ def getRiskAnalysis():
         
         # get important ratios
         info = ticker.info
-        debt_to_equity = info.get('debtToEquity', "N/A") # 61.175 - AMZN
-        current_ratio = info.get('currentRatio', "N/A")# 1.089 - AMZN
-        quick_ratio = info.get('quickRatio', "N/A") #0.827 - AMZN
+        debt_to_equity = info.get('debtToEquity', "") # 61.175 - AMZN
+        current_ratio = info.get('currentRatio', "")# 1.089 - AMZN
+        quick_ratio = info.get('quickRatio', "") #0.827 - AMZN
         
         #send to frontend
         risk_analysis_to_send['debtToEquity'] = debt_to_equity 
         risk_analysis_to_send['currentRatio'] = current_ratio 
         risk_analysis_to_send['quickRatio'] = quick_ratio 
-    
+    print(risk_analysis_to_send)
     return jsonify(risk_analysis_to_send), 200
+
+# -------------------------------------------------------- Holdings route ------------------------------------------------------------------------------------------------------------
 
 #use this route to update the user's holdings
 @app.route('/update-holdings', methods=['POST'])
 def updateHoldings():
     request_data = request.get_json()
-    price = request_data['price']
-    ticker = request_data['ticker']
+    # print('Requested data:', request_data)
     
-    # input the form into postgres
+    email_in = request_data['email'].lower()
+    price = float(request_data['holdingsUpdate']['price'])  # Convert to float
+    ticker_in = request_data['holdingsUpdate']['ticker'].upper()
+    shares = int(request_data['holdingsUpdate']['num_shares'])  # Convert to int
+
+    if not email_in or not ticker_in or price is None or shares is None:
+        return jsonify({"error": "Email, ticker, price, and num_shares are required"}), 400
+
+    try:
+        # Check if user already holds this stock
+        existing_holding = Holdings.query.filter_by(email=email_in, ticker=ticker_in).first()
+
+        if existing_holding:
+            
+            # Store the original number of shares for correct weighted average calculation
+            original_shares = existing_holding.num_shares
+            
+            # Update number of shares
+            existing_holding.num_shares += shares
+
+            # Calculate new weighted average price
+            new_avg_price = ((float(existing_holding.avg_price) * original_shares) + (shares * price)) / existing_holding.num_shares
+            existing_holding.avg_price = new_avg_price
+
+            # Update total value
+            existing_holding.value = float(existing_holding.num_shares * existing_holding.avg_price)
+            
+            existing_holding.avg_price = float(existing_holding.avg_price)
+            existing_holding.num_shares = int(existing_holding.num_shares)
+            existing_holding.value = float(existing_holding.value)
+            
+            # print(f"Data Types -> avg_price: {type(existing_holding.avg_price)}, num_shares: {type(existing_holding.num_shares)}, value: {type(existing_holding.value)}")
+
+
+            # Directly commit changes without flushing or refreshing
+            flag_modified(existing_holding, "num_shares")
+            flag_modified(existing_holding, "avg_price")
+            flag_modified(existing_holding, "value")
+            db.session.commit()
+            print("Commit successful!")
+
+            return jsonify({
+                "message": "Holding updated successfully",
+                "data": {
+                    # "id": str(existing_holding.id),
+                    "email": existing_holding.email,
+                    "ticker": existing_holding.ticker,
+                    "avg_price": existing_holding.avg_price,
+                    "num_shares": existing_holding.num_shares,
+                    "value": existing_holding.value
+                }
+            }), 200
+
+        else:
+            value_of_shares = price * shares
+
+            # Insert a new record with avg_price
+            new_holding = Holdings(
+                email=email_in, ticker=ticker_in, avg_price=price, num_shares=shares, value=value_of_shares
+            )
+            db.session.add(new_holding)
+            db.session.commit()
+
+            return jsonify({
+                "message": "New holding added successfully",
+                "data": {
+                    # "id": str(new_holding.id),
+                    "email": new_holding.email,
+                    "ticker": new_holding.ticker,
+                    "avg_price": new_holding.avg_price,
+                    "num_shares": new_holding.num_shares,
+                    "value": new_holding.value
+                }
+            }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database Error: {str(e)}")  # Log the actual error
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
     
+
+# gets the user's current stock holdings
+@app.route('/get-holdings', methods=['GET'])
+def get_holdings():
+    email = request.args.get('userEmail').lower()
+    if not email:
+        return jsonify({"error": "Missing email parameter"}), 400
+
+    print(f"Fetching holdings for: {email}")
     
-    return jsonify(request_data), 200
+    holdings = Holdings.query.filter_by(email=email).all()
+    
+    # Convert holdings to JSON (example: modify based on your DB schema)
+    holdings_list = [{"ticker": h.ticker, "num_shares": h.num_shares, "avg_price": h.avg_price, "value": float(h.value)} for h in holdings]
+    
+    return jsonify({"holdings": holdings_list}), 200
 
 
 
