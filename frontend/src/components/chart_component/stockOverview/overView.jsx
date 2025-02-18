@@ -110,7 +110,7 @@ export const StockOverview = ({ stock }) => {
               <p><span className='ibm-plex-sans-heavy-ov' style={{color:'#ffcc00'}} >EPS:</span> ${latestData["Basic EPS"] || "No Data"}</p>
               <p><span className='ibm-plex-sans-heavy-ov' style={{color:'#ffcc00'}} >R&D:</span> ${latestData["Research And Development"]?.toLocaleString() || "No Data"}</p>
               <p><span className='ibm-plex-sans-heavy-ov' style={{color:'#ffcc00'}} >Cost of Revenue:</span> ${latestData["Cost Of Revenue"]?.toLocaleString() || "No Data"}</p>
-              <p><span className='ibm-plex-sans-heavy-ov' style={{color:'#ffcc00'}} >Pretax Income:</span> ${latestData["Pretax Income"]?.toLocaleString() || "No Data"}</p>
+              <p><span className='ibm-plex-sans-heavy-ov' style={{color:'#ffcc00'}} >Latest Price:</span> ${additionalData["latest_price"]?.toFixed(2) || "No Data"}</p>
             </div>
           </div>
         </>

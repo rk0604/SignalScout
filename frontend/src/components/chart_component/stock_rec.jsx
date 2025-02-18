@@ -18,7 +18,9 @@ export function Recommendations() {
   const [holdingsUpdate, setHoldingsUpdate] = useState({
     ticker:'',
     price:'',
+    num_shares:'',
   })
+  const [email, setEmail] = useState('');
 
 
 // ------------------------------------------------------------ Main functions (backend interactions) --------------------------------------------------------------------------
@@ -56,8 +58,9 @@ export function Recommendations() {
   //update holdings for a stock
   const updateHoldings = async(e) =>{
     e.preventDefault() // prevent page reload
+    const payload = {email, holdingsUpdate}
     try{
-      const response = await axios.post(`${API_URL}/update-holdings`, holdingsUpdate,{
+      const response = await axios.post(`${API_URL}/update-holdings`, payload,{
         withCredentials:true,
         headers:{  "Content-Type": "application/json"}
       });
@@ -89,6 +92,10 @@ export function Recommendations() {
   const chosenStock = (stock) => {
     setSelectedStock(stock);
     setModalIsOpen(true);
+    setHoldingsUpdate(prevState => ({
+      ...prevState,
+      ticker: stock
+    }));
   };
 
   // handles the useState hook update for holdings
@@ -102,6 +109,7 @@ export function Recommendations() {
 
   //main useEffect hook
   useEffect(() => {
+    setEmail(localStorage.getItem('email'))
     const timer = setTimeout(() => {
       fetchRecs();
     }, 500); // Delay execution to prevent rapid calls
@@ -169,21 +177,35 @@ export function Recommendations() {
               <label className="stock-holding-form-label ibm-plex-sans-medium">
                   Ticker:
                   <input 
-                      type="text" 
-                      className="stock-holding-form-input ibm-plex-sans-medium" 
-                      value={holdingsUpdate.ticker} 
-                      name="ticker" 
-                      required 
+                    type="text" 
+                    className="stock-holding-form-input ibm-plex-sans-medium" 
+                    value={holdingsUpdate.ticker} 
+                    name="ticker" 
+                    onChange={handleHoldingsFormUpdate} // Added onChange
+                    required 
                   />
               </label>
               <label className="stock-holding-form-label ibm-plex-sans-medium">
                   Buy Price:
                   <input 
-                      type="number" 
-                      className="stock-holding-form-input ibm-plex-sans-medium" 
-                      name="price"    
-                      value={holdingsUpdate.price}  
-                      required 
+                    type="number" 
+                    className="stock-holding-form-input ibm-plex-sans-medium" 
+                    name="price"    
+                    value={holdingsUpdate.price}  
+                    onChange={handleHoldingsFormUpdate} // Added onChange
+                    required 
+                  />
+              </label>
+
+              <label className="stock-holding-form-label ibm-plex-sans-medium">
+                  Number of Shares Bought:
+                  <input 
+                    type="number" 
+                    className="stock-holding-form-input ibm-plex-sans-medium" 
+                    value={holdingsUpdate.num_shares} 
+                    name="num_shares" 
+                    onChange={handleHoldingsFormUpdate} // Added onChange
+                    required 
                   />
               </label>
               <button type="submit" className="ibm-plex-sans-medium">Update Holdings</button>

@@ -1,4 +1,130 @@
-.holdings-card {
-  margin: 0px auto !important;
-  padding: 10px;
+
+  .refreshButton{
+    padding: 10px;
+    border: 2px solid #ffcc00; /* Highlighted Yellow */
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+    color: antiquewhite;
   }
+
+  .refreshButton:hover{
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+  }
+/**/
+  .holdings-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-top: 20px;
+    height: fit-content !important;
+    max-height: 600px !important;
+}
+
+/* Scrollbar for the holdings-card */
+.holdings-card {
+  border-radius: 10px;
+  /* padding: 10px; */
+  width: 100%;
+  max-width: 800px;
+  text-align: center;
+  color: #fff;
+  height: fit-content;
+  max-height: 600px !important; /* Set a max height to ensure scrollbar appears only when needed */
+  overflow-y: auto; /* Enables scrolling when content overflows */
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar styling */
+.holdings-card::-webkit-scrollbar {
+  width: 8px; /* Adjust scrollbar width */
+}
+
+.holdings-card::-webkit-scrollbar-thumb {
+  background: #333; /* Dark scrollbar for dark mode */
+  border-radius: 5px;
+}
+
+.holdings-card::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+.holdings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-right: 10px;
+    padding-left: 10px;
+}
+
+.holdings-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 5px;
+    height: 10%;
+    max-height: 120px !important;
+}
+
+.holding-item {
+    background: #222;
+    padding: 10px;
+    border-radius: 5px;
+    text-align: left;
+    border: 1px solid #333;
+    transition: all 0.3s ease;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.holding-item p{
+  font-size: 16px;
+  margin: 1px 0;
+  border-radius: 6px;
+  line-height: 1.8;
+  font-weight: 600;
+  text-align: left;
+  /* background: rgba(255, 255, 255, 0.1); */
+  /* border-left: 5px solid #ffcc00; */
+  padding-left: 16px;
+  color: #FFFFFF !important;
+}
+
+.holding-item span{
+  font-weight: 900 !important;
+  color: #ffcc00 !important;
+  font-size: 16px;
+  /* display: block; */
+  margin-bottom: 1px;
+  text-transform: uppercase;
+  letter-spacing: 1.20px;
+}
+
+.holding-item:hover {
+  background: #3f3f3f;
+}
+
+.holding-name {
+    font-size: 26px !important;
+    font-weight: bold;
+    color: #FFD700;
+    padding-left: 16px;
+}
+
+.holding-value {
+    font-weight: bold;
+    color: #0BDA51 !important; 
+}
+
+.no-holdings {
+    margin-top: 15px;
+    font-size: 16px;
+    font-weight: bold;
+    color: #FA5F55;
+}
+
+
