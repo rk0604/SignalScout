@@ -226,6 +226,7 @@ def fetchRecommendations():
     if not stock_rec:
         return jsonify({"message": "Could not retrieve stock recommendations at this moment"}), 400
 
+    # print(stock_recommendations_to_send)
     return jsonify(stock_recommendations_to_send), 200
 
 # --------------------------------------------------------- RISK ANALYSIS STOCK -------------------------------------------------------------------------------------------
@@ -266,7 +267,7 @@ def getRiskAnalysis():
         risk_analysis_to_send['debtToEquity'] = debt_to_equity 
         risk_analysis_to_send['currentRatio'] = current_ratio 
         risk_analysis_to_send['quickRatio'] = quick_ratio 
-    print(risk_analysis_to_send)
+    # print(risk_analysis_to_send)
     return jsonify(risk_analysis_to_send), 200
 
 # -------------------------------------------------------- Holdings route ------------------------------------------------------------------------------------------------------------
@@ -275,7 +276,6 @@ def getRiskAnalysis():
 @app.route('/update-holdings', methods=['POST'])
 def updateHoldings():
     request_data = request.get_json()
-    # print('Requested data:', request_data)
     
     email_in = request_data['email'].lower()
     price = float(request_data['holdingsUpdate']['price'])  # Convert to float
@@ -290,50 +290,61 @@ def updateHoldings():
         existing_holding = Holdings.query.filter_by(email=email_in, ticker=ticker_in).first()
 
         if existing_holding:
-            
-            # Store the original number of shares for correct weighted average calculation
-            original_shares = existing_holding.num_shares
-            
-            # Update number of shares
-            existing_holding.num_shares += shares
+            # Handle SELL transactions (shares are negative)
+            if shares < 0:
+                abs_shares = abs(shares)  # Convert to positive for comparison
 
-            # Calculate new weighted average price
-            new_avg_price = ((float(existing_holding.avg_price) * original_shares) + (shares * price)) / existing_holding.num_shares
-            existing_holding.avg_price = new_avg_price
+                if existing_holding.num_shares < abs_shares:
+                    return jsonify({"error": "Not enough shares to sell"}), 400  # Prevent overselling
 
-            # Update total value
-            existing_holding.value = float(existing_holding.num_shares * existing_holding.avg_price)
-            
-            existing_holding.avg_price = float(existing_holding.avg_price)
-            existing_holding.num_shares = int(existing_holding.num_shares)
-            existing_holding.value = float(existing_holding.value)
-            
-            # print(f"Data Types -> avg_price: {type(existing_holding.avg_price)}, num_shares: {type(existing_holding.num_shares)}, value: {type(existing_holding.value)}")
+                # Reduce the number of shares
+                existing_holding.num_shares -= abs_shares
 
+                if existing_holding.num_shares == 0:
+                    # Remove holding if all shares are sold
+                    db.session.delete(existing_holding)
+                else:
+                    # Update total value
+                    existing_holding.value = float(existing_holding.num_shares * existing_holding.avg_price)
 
-            # Directly commit changes without flushing or refreshing
-            flag_modified(existing_holding, "num_shares")
-            flag_modified(existing_holding, "avg_price")
-            flag_modified(existing_holding, "value")
-            db.session.commit()
-            print("Commit successful!")
+                    flag_modified(existing_holding, "num_shares")
+                    flag_modified(existing_holding, "value")
 
-            return jsonify({
-                "message": "Holding updated successfully",
-                "data": {
-                    # "id": str(existing_holding.id),
-                    "email": existing_holding.email,
-                    "ticker": existing_holding.ticker,
-                    "avg_price": existing_holding.avg_price,
-                    "num_shares": existing_holding.num_shares,
-                    "value": existing_holding.value
-                }
-            }), 200
+                db.session.commit()
+                return jsonify({"message": "Shares sold successfully"}), 200
+
+            else:  # Handle BUY transactions
+                original_shares = existing_holding.num_shares
+                existing_holding.num_shares += shares
+
+                # Weighted average price update
+                new_avg_price = ((float(existing_holding.avg_price) * original_shares) + (shares * price)) / existing_holding.num_shares
+                existing_holding.avg_price = new_avg_price
+
+                # Update total value
+                existing_holding.value = float(existing_holding.num_shares * existing_holding.avg_price)
+
+                flag_modified(existing_holding, "num_shares")
+                flag_modified(existing_holding, "avg_price")
+                flag_modified(existing_holding, "value")
+
+                db.session.commit()
+                return jsonify({
+                    "message": "Holding updated successfully",
+                    "data": {
+                        "email": existing_holding.email,
+                        "ticker": existing_holding.ticker,
+                        "avg_price": existing_holding.avg_price,
+                        "num_shares": existing_holding.num_shares,
+                        "value": existing_holding.value
+                    }
+                }), 200
 
         else:
-            value_of_shares = price * shares
+            if shares < 0:
+                return jsonify({"error": "Cannot sell a stock you do not own"}), 400  # Prevent selling without holdings
 
-            # Insert a new record with avg_price
+            value_of_shares = price * shares
             new_holding = Holdings(
                 email=email_in, ticker=ticker_in, avg_price=price, num_shares=shares, value=value_of_shares
             )
@@ -343,7 +354,6 @@ def updateHoldings():
             return jsonify({
                 "message": "New holding added successfully",
                 "data": {
-                    # "id": str(new_holding.id),
                     "email": new_holding.email,
                     "ticker": new_holding.ticker,
                     "avg_price": new_holding.avg_price,
@@ -357,6 +367,11 @@ def updateHoldings():
         print(f"Database Error: {str(e)}")  # Log the actual error
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
+@app.route('/get-sentiment-analysis', methods=['GET'])
+def fetchSentiAnal():
+    request_data = request.get_json()
+    print("Received request in risk anal:", request_data) # AMZN
+    
     
 
 # gets the user's current stock holdings
@@ -365,13 +380,33 @@ def get_holdings():
     email = request.args.get('userEmail').lower()
     if not email:
         return jsonify({"error": "Missing email parameter"}), 400
+    print('get holdings for: ',email)
 
-    print(f"Fetching holdings for: {email}")
-    
     holdings = Holdings.query.filter_by(email=email).all()
     
     # Convert holdings to JSON (example: modify based on your DB schema)
-    holdings_list = [{"ticker": h.ticker, "num_shares": h.num_shares, "avg_price": h.avg_price, "value": float(h.value)} for h in holdings]
+    
+    holdings_list = [
+    {
+        "ticker": h.ticker,
+        "num_shares": h.num_shares,
+        "avg_price": float(h.avg_price),
+        "value": float(h.value),
+    } for h in holdings]
+
+    # Fetch latest stock price for each holding
+    for i, hold in enumerate(holdings):
+        stock = yf.Ticker(hold.ticker)  # Fetch stock data
+        data = stock.history(period="1d")  # Get last trading day's data
+        if not data.empty:
+            last_quote = data["Close"].iloc[-1]  # Get the latest closing price
+            holdings_list[i]["last_quote"] = float(last_quote)  # Append to the correct stock
+            
+            price_diff = (last_quote - holdings_list[i]['avg_price'])
+            total_return = ((price_diff/holdings_list[i]['avg_price'])*100)
+            holdings_list[i]['total_return'] = total_return
+        else:
+            holdings_list[i]["last_quote"] = None  # Handle missing data
     
     return jsonify({"holdings": holdings_list}), 200
 

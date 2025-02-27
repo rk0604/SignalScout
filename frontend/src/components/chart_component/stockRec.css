@@ -63,6 +63,17 @@
     text-align: center;
 }
 
+.recommend-title:hover{
+    cursor: pointer;
+    color: #bbff00;
+    border-bottom: 2px solid #bbff00;
+}
+
+.recommend-title:active{
+    cursor: pointer;
+    border-bottom: 2px solid #bbff00;
+}
+
 .recommend-grid {
     display: flex;
     flex-wrap: wrap;
