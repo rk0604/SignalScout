@@ -113,6 +113,7 @@
     font-weight: bold;
     color: #FFD700;
     padding-left: 16px;
+    margin-bottom: 0px !important;
 }
 
 .holding-value {

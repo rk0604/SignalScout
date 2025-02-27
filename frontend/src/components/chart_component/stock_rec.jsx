@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import './stockRec.css';
-import PropTypes from "prop-types";
+import PropTypes, { object } from "prop-types";
 import Modal from 'react-modal';
 import axios from "axios";
 
@@ -15,7 +15,7 @@ export function Recommendations() {
   const API_URL = import.meta.env.VITE_API_URL;
   const [selectedStock, setSelectedStock] = useState("");
   const [recommendations, setRecommendations] = useState([]); 
-  const [holdingsUpdate, setHoldingsUpdate] = useState({
+  const [holdingsUpdate, setHoldingsUpdate] = useState({ // used when the user inputs their holding of a stock
     ticker:'',
     price:'',
     num_shares:'',
@@ -35,8 +35,9 @@ export function Recommendations() {
       });
 
       if(response.status){
-        console.log(response.data);
+        // console.log(response.data);
         setRecommendations(response.data)
+        localStorage.setItem('cachedRecs', response.data)
       }
 
     }catch(err){
@@ -109,17 +110,19 @@ export function Recommendations() {
 
   //main useEffect hook
   useEffect(() => {
-    setEmail(localStorage.getItem('email'))
+    setEmail(localStorage.getItem('email'));
+
     const timer = setTimeout(() => {
-      fetchRecs();
+    // fetchRecs();
     }, 500); // Delay execution to prevent rapid calls
   
-    return () => clearTimeout(timer); // Cleanup previous timeout
-  }, []);  
+    return () => clearTimeout(timer); 
+  }, []);
+  
 
   return (
     <div className="recommend-card">
-      <h3 className="recommend-title">Recommendations</h3>
+      <h3 className="recommend-title" onClick={()=>{fetchRecs()}} >Recommendations</h3>
       <div className="recommend-grid">
       {recommendations ?
       (
@@ -186,7 +189,7 @@ export function Recommendations() {
                   />
               </label>
               <label className="stock-holding-form-label ibm-plex-sans-medium">
-                  Buy Price:
+                  Transaction Price:
                   <input 
                     type="number" 
                     className="stock-holding-form-input ibm-plex-sans-medium" 
@@ -198,7 +201,8 @@ export function Recommendations() {
               </label>
 
               <label className="stock-holding-form-label ibm-plex-sans-medium">
-                  Number of Shares Bought:
+                  Number of Shares in Transaction:
+                  <p className="ibm-plex-sans" style={{color:'#FFFFFF'}}>*negative if sell order*</p>
                   <input 
                     type="number" 
                     className="stock-holding-form-input ibm-plex-sans-medium" 

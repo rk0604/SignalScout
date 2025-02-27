@@ -2506,3 +2506,180 @@ WMT,N/A,Operating Cash Flow,39630000128
 AMZN,N/A,latest_price,228.67999267578125
 ASTS,N/A,latest_price,32.099998474121094
 AVGO,N/A,latest_price,233.0399932861328
+NVDA,2024-01-31,Tax Effect Of Unusual Items,0.0
+NVDA,2024-01-31,Tax Rate For Calcs,0.12
+NVDA,2024-01-31,Normalized EBITDA,35583000000.0
+NVDA,2024-01-31,Total Unusual Items,0.0
+NVDA,2024-01-31,Total Unusual Items Excluding Goodwill,0.0
+NVDA,2024-01-31,Net Income From Continuing Operation Net Minority Interest,29760000000.0
+NVDA,2024-01-31,Reconciled Depreciation,1508000000.0
+NVDA,2024-01-31,Reconciled Cost Of Revenue,16621000000.0
+NVDA,2024-01-31,EBITDA,35583000000.0
+NVDA,2024-01-31,EBIT,34075000000.0
+NVDA,2024-01-31,Net Interest Income,609000000.0
+NVDA,2024-01-31,Interest Expense,257000000.0
+NVDA,2024-01-31,Interest Income,866000000.0
+NVDA,2024-01-31,Normalized Income,29760000000.0
+NVDA,2024-01-31,Net Income From Continuing And Discontinued Operation,29760000000.0
+NVDA,2024-01-31,Total Expenses,27950000000.0
+NVDA,2024-01-31,Total Operating Income As Reported,32972000000.0
+NVDA,2024-01-31,Diluted Average Shares,24940000000.0
+NVDA,2024-01-31,Basic Average Shares,24690000000.0
+NVDA,2024-01-31,Diluted EPS,1.193
+NVDA,2024-01-31,Basic EPS,1.205
+NVDA,2024-01-31,Diluted NI Availto Com Stockholders,29760000000.0
+NVDA,2024-01-31,Net Income Common Stockholders,29760000000.0
+NVDA,2024-01-31,Net Income,29760000000.0
+NVDA,2024-01-31,Net Income Including Noncontrolling Interests,29760000000.0
+NVDA,2024-01-31,Net Income Continuous Operations,29760000000.0
+NVDA,2024-01-31,Tax Provision,4058000000.0
+NVDA,2024-01-31,Pretax Income,33818000000.0
+NVDA,2024-01-31,Other Income Expense,237000000.0
+NVDA,2024-01-31,Other Non Operating Income Expenses,237000000.0
+NVDA,2024-01-31,Special Income Charges,0.0
+NVDA,2024-01-31,Restructuring And Mergern Acquisition,0.0
+NVDA,2024-01-31,Net Non Operating Interest Income Expense,609000000.0
+NVDA,2024-01-31,Interest Expense Non Operating,257000000.0
+NVDA,2024-01-31,Interest Income Non Operating,866000000.0
+NVDA,2024-01-31,Operating Income,32972000000.0
+NVDA,2024-01-31,Operating Expense,11329000000.0
+NVDA,2024-01-31,Research And Development,8675000000.0
+NVDA,2024-01-31,Selling General And Administration,2654000000.0
+NVDA,2024-01-31,Gross Profit,44301000000.0
+NVDA,2024-01-31,Cost Of Revenue,16621000000.0
+NVDA,2024-01-31,Total Revenue,60922000000.0
+NVDA,2024-01-31,Operating Revenue,60922000000.0
+NVDA,2023-01-31,Tax Effect Of Unusual Items,-284130000.0
+NVDA,2023-01-31,Tax Rate For Calcs,0.21
+NVDA,2023-01-31,Normalized EBITDA,7340000000.0
+NVDA,2023-01-31,Total Unusual Items,-1353000000.0
+NVDA,2023-01-31,Total Unusual Items Excluding Goodwill,-1353000000.0
+NVDA,2023-01-31,Net Income From Continuing Operation Net Minority Interest,4368000000.0
+NVDA,2023-01-31,Reconciled Depreciation,1544000000.0
+NVDA,2023-01-31,Reconciled Cost Of Revenue,11618000000.0
+NVDA,2023-01-31,EBITDA,5987000000.0
+NVDA,2023-01-31,EBIT,4443000000.0
+NVDA,2023-01-31,Net Interest Income,5000000.0
+NVDA,2023-01-31,Interest Expense,262000000.0
+NVDA,2023-01-31,Interest Income,267000000.0
+NVDA,2023-01-31,Normalized Income,5436870000.0
+NVDA,2023-01-31,Net Income From Continuing And Discontinued Operation,4368000000.0
+NVDA,2023-01-31,Total Expenses,21397000000.0
+NVDA,2023-01-31,Total Operating Income As Reported,4224000000.0
+NVDA,2023-01-31,Diluted Average Shares,25070000000.0
+NVDA,2023-01-31,Basic Average Shares,24870000000.0
+NVDA,2023-01-31,Diluted EPS,0.174
+NVDA,2023-01-31,Basic EPS,0.176
+NVDA,2023-01-31,Diluted NI Availto Com Stockholders,4368000000.0
+NVDA,2023-01-31,Net Income Common Stockholders,4368000000.0
+NVDA,2023-01-31,Net Income,4368000000.0
+NVDA,2023-01-31,Net Income Including Noncontrolling Interests,4368000000.0
+NVDA,2023-01-31,Net Income Continuous Operations,4368000000.0
+NVDA,2023-01-31,Tax Provision,-187000000.0
+NVDA,2023-01-31,Pretax Income,4181000000.0
+NVDA,2023-01-31,Other Income Expense,-1401000000.0
+NVDA,2023-01-31,Other Non Operating Income Expenses,-48000000.0
+NVDA,2023-01-31,Special Income Charges,-1353000000.0
+NVDA,2023-01-31,Restructuring And Mergern Acquisition,1353000000.0
+NVDA,2023-01-31,Net Non Operating Interest Income Expense,5000000.0
+NVDA,2023-01-31,Interest Expense Non Operating,262000000.0
+NVDA,2023-01-31,Interest Income Non Operating,267000000.0
+NVDA,2023-01-31,Operating Income,5577000000.0
+NVDA,2023-01-31,Operating Expense,9779000000.0
+NVDA,2023-01-31,Research And Development,7339000000.0
+NVDA,2023-01-31,Selling General And Administration,2440000000.0
+NVDA,2023-01-31,Gross Profit,15356000000.0
+NVDA,2023-01-31,Cost Of Revenue,11618000000.0
+NVDA,2023-01-31,Total Revenue,26974000000.0
+NVDA,2023-01-31,Operating Revenue,26974000000.0
+NVDA,2022-01-31,Tax Effect Of Unusual Items,0.0
+NVDA,2022-01-31,Tax Rate For Calcs,0.019
+NVDA,2022-01-31,Normalized EBITDA,11351000000.0
+NVDA,2022-01-31,Total Unusual Items,0.0
+NVDA,2022-01-31,Total Unusual Items Excluding Goodwill,0.0
+NVDA,2022-01-31,Net Income From Continuing Operation Net Minority Interest,9752000000.0
+NVDA,2022-01-31,Reconciled Depreciation,1174000000.0
+NVDA,2022-01-31,Reconciled Cost Of Revenue,9439000000.0
+NVDA,2022-01-31,EBITDA,11351000000.0
+NVDA,2022-01-31,EBIT,10177000000.0
+NVDA,2022-01-31,Net Interest Income,-207000000.0
+NVDA,2022-01-31,Interest Expense,236000000.0
+NVDA,2022-01-31,Interest Income,29000000.0
+NVDA,2022-01-31,Normalized Income,9752000000.0
+NVDA,2022-01-31,Net Income From Continuing And Discontinued Operation,9752000000.0
+NVDA,2022-01-31,Total Expenses,16873000000.0
+NVDA,2022-01-31,Total Operating Income As Reported,10041000000.0
+NVDA,2022-01-31,Diluted Average Shares,25350000000.0
+NVDA,2022-01-31,Basic Average Shares,24960000000.0
+NVDA,2022-01-31,Diluted EPS,0.385
+NVDA,2022-01-31,Basic EPS,0.391
+NVDA,2022-01-31,Diluted NI Availto Com Stockholders,9752000000.0
+NVDA,2022-01-31,Net Income Common Stockholders,9752000000.0
+NVDA,2022-01-31,Net Income,9752000000.0
+NVDA,2022-01-31,Net Income Including Noncontrolling Interests,9752000000.0
+NVDA,2022-01-31,Net Income Continuous Operations,9752000000.0
+NVDA,2022-01-31,Tax Provision,189000000.0
+NVDA,2022-01-31,Pretax Income,9941000000.0
+NVDA,2022-01-31,Other Income Expense,107000000.0
+NVDA,2022-01-31,Other Non Operating Income Expenses,107000000.0
+NVDA,2022-01-31,Special Income Charges,0.0
+NVDA,2022-01-31,Restructuring And Mergern Acquisition,0.0
+NVDA,2022-01-31,Net Non Operating Interest Income Expense,-207000000.0
+NVDA,2022-01-31,Interest Expense Non Operating,236000000.0
+NVDA,2022-01-31,Interest Income Non Operating,29000000.0
+NVDA,2022-01-31,Operating Income,10041000000.0
+NVDA,2022-01-31,Operating Expense,7434000000.0
+NVDA,2022-01-31,Research And Development,5268000000.0
+NVDA,2022-01-31,Selling General And Administration,2166000000.0
+NVDA,2022-01-31,Gross Profit,17475000000.0
+NVDA,2022-01-31,Cost Of Revenue,9439000000.0
+NVDA,2022-01-31,Total Revenue,26914000000.0
+NVDA,2022-01-31,Operating Revenue,26914000000.0
+NVDA,2021-01-31,Tax Effect Of Unusual Items,0.0
+NVDA,2021-01-31,Tax Rate For Calcs,0.017
+NVDA,2021-01-31,Normalized EBITDA,5691000000.0
+NVDA,2021-01-31,Total Unusual Items,0.0
+NVDA,2021-01-31,Total Unusual Items Excluding Goodwill,0.0
+NVDA,2021-01-31,Net Income From Continuing Operation Net Minority Interest,4332000000.0
+NVDA,2021-01-31,Reconciled Depreciation,1098000000.0
+NVDA,2021-01-31,Reconciled Cost Of Revenue,6279000000.0
+NVDA,2021-01-31,EBITDA,5691000000.0
+NVDA,2021-01-31,EBIT,4593000000.0
+NVDA,2021-01-31,Net Interest Income,-127000000.0
+NVDA,2021-01-31,Interest Expense,184000000.0
+NVDA,2021-01-31,Interest Income,57000000.0
+NVDA,2021-01-31,Normalized Income,4332000000.0
+NVDA,2021-01-31,Net Income From Continuing And Discontinued Operation,4332000000.0
+NVDA,2021-01-31,Total Expenses,12143000000.0
+NVDA,2021-01-31,Total Operating Income As Reported,4532000000.0
+NVDA,2021-01-31,Diluted Average Shares,25120000000.0
+NVDA,2021-01-31,Basic Average Shares,24680000000.0
+NVDA,2021-01-31,Diluted EPS,0.1725
+NVDA,2021-01-31,Basic EPS,0.1755
+NVDA,2021-01-31,Diluted NI Availto Com Stockholders,4332000000.0
+NVDA,2021-01-31,Net Income Common Stockholders,4332000000.0
+NVDA,2021-01-31,Net Income,4332000000.0
+NVDA,2021-01-31,Net Income Including Noncontrolling Interests,4332000000.0
+NVDA,2021-01-31,Net Income Continuous Operations,4332000000.0
+NVDA,2021-01-31,Tax Provision,77000000.0
+NVDA,2021-01-31,Pretax Income,4409000000.0
+NVDA,2021-01-31,Other Income Expense,4000000.0
+NVDA,2021-01-31,Other Non Operating Income Expenses,4000000.0
+NVDA,2021-01-31,Special Income Charges,0.0
+NVDA,2021-01-31,Restructuring And Mergern Acquisition,0.0
+NVDA,2021-01-31,Net Non Operating Interest Income Expense,-127000000.0
+NVDA,2021-01-31,Interest Expense Non Operating,184000000.0
+NVDA,2021-01-31,Interest Income Non Operating,57000000.0
+NVDA,2021-01-31,Operating Income,4532000000.0
+NVDA,2021-01-31,Operating Expense,5864000000.0
+NVDA,2021-01-31,Research And Development,3924000000.0
+NVDA,2021-01-31,Selling General And Administration,1940000000.0
+NVDA,2021-01-31,Gross Profit,10396000000.0
+NVDA,2021-01-31,Cost Of Revenue,6279000000.0
+NVDA,2021-01-31,Total Revenue,16675000000.0
+NVDA,2021-01-31,Operating Revenue,16675000000.0
+NVDA,N/A,Market Cap,3215047262208
+NVDA,N/A,PE Ratio,51.889328
+NVDA,N/A,Dividends Paid,0.18365
+NVDA,N/A,Operating Cash Flow,58958999552
+NVDA,N/A,latest_price,131.27999877929688

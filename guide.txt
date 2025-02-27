@@ -7,3 +7,6 @@ cd backend
 
 cd frontend
 1. npm run dev
+
+git commands
+1. check if file/folder is ignored for git ignore - git check-ignore -v frontend/node_modules
