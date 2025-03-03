@@ -7,6 +7,7 @@ import axios from 'axios';
 export const StockOverview = ({ stock }) => {
   const API_URL = import.meta.env.VITE_API_URL;
   const [stockData, setStockData] = useState(null); // holds the stock data
+  const [userPinnedStocks, setPinnedaStocks] = useState([]); // holds the set of stocks the user has pinned 
 
   // Fetch stock details from Flask backend using yfinance API
   const fetchStockDetails = async () => {

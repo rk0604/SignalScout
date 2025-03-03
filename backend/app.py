@@ -14,6 +14,7 @@ import bcrypt
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm.attributes import flag_modified
+import time
 
 
 app = Flask(__name__)
@@ -50,6 +51,7 @@ class Holdings(db.Model):
     avg_price = db.Column(db.Numeric(precision=10, scale=2), unique=False, nullable=False)
     num_shares = db.Column(db.Integer, unique=False, nullable=False)
     value = db.Column(db.Numeric(precision=10, scale=2), unique=False, nullable=False)
+    pinned = db.Column(db.Boolean, unique=False, nullable=False, default=False)
 
 # ----------------------------------------------- helper functions -------------------------------------------------------------------------------
 
@@ -162,15 +164,28 @@ def fetch_specific_stock_data():
         "additional_data": additional_data
     }), 200
 
-# use this route to fetch 30 recommendations of stock to buy
+# use this route to fetch 30 recommendations of stock to buyimport time
 @app.route('/fetch-recs', methods=['POST'])
 def fetchRecommendations():  
     rec_arr = {}  # Stores calculated buy/hold/sell values
     stock_rec = {}  # Stores final stock recommendations
-
-    for stock in sp500_tickers:
+    request_data = request.get_json() 
+    email_in = request_data['email'].lower() # Get the email
+    
+    # Add pinned stocks to the list
+    pinnedStocks = fetchPinnedStocks(email_in)
+    combined_recs = sp500_tickers + pinnedStocks
+    num_of_pins = len(pinnedStocks)
+    
+    remove_duplicates = set(combined_recs)
+    unique_list_recs = list(remove_duplicates)
+    
+    for stock in unique_list_recs:
         ticker = yf.Ticker(stock)
-        # print(ticker.eps_trend)
+        
+        # Add a small delay to prevent API rate limiting
+        time.sleep(0.5)  # Pause for 0.5 sec before fetching next stock
+
         stock_consideration = ticker.get_recommendations()
 
         # Ensure data exists and is not empty
@@ -215,8 +230,8 @@ def fetchRecommendations():
             "indicator": rec_arr[decision]
         }   
 
-    stock_recommendations_to_send = {}
-    for _ in range(30):
+    stock_recommendations_to_send = {}  # Dictionary of recommendations to send 
+    for _ in range(30+num_of_pins):
         if not stock_rec:  # Ensure stock_rec is not empty
             break
         max_stock = max(stock_rec, key=lambda x: stock_rec[x]["indicator"])
@@ -226,8 +241,22 @@ def fetchRecommendations():
     if not stock_rec:
         return jsonify({"message": "Could not retrieve stock recommendations at this moment"}), 400
 
-    # print(stock_recommendations_to_send)
     return jsonify(stock_recommendations_to_send), 200
+
+#use this function to retrieve the users' pinned stocks
+def fetchPinnedStocks(email: str) -> list: # return a list of tickers
+    #retrieve all the user's holdings
+    if not email:
+        return [] #return empty list if no email 
+    holdings = Holdings.query.filter_by(email=email).all()
+    if not holdings:
+        return [] #return empty list if holdings is empty
+    
+    # filter for the holdings that that are pinned, ideally redundant. should by default return all user holdings
+    # as even if a stock is not held by the user, it can still be pinned
+    pinned_stocks_to_recommend = [h.ticker for h in holdings if h.pinned == True]
+    return pinned_stocks_to_recommend    
+    
 
 # --------------------------------------------------------- RISK ANALYSIS STOCK -------------------------------------------------------------------------------------------
 
@@ -275,53 +304,71 @@ def getRiskAnalysis():
 #use this route to update the user's holdings
 @app.route('/update-holdings', methods=['POST'])
 def updateHoldings():
+    """
+    This route updates a user's holdings:
+      - Buying new shares (shares > 0)
+      - Selling existing shares (shares < 0)
+      - Creating a completely new holding (with nonzero shares)
+      {
+        "email": "rishabk2004@gmail.com",
+        "holdingsUpdate": {
+            "ticker": "ICE",
+            "price": "85.5",
+            "num_shares": 10
+        }
+        }
+    """
     request_data = request.get_json()
-    
-    email_in = request_data['email'].lower()
-    price = float(request_data['holdingsUpdate']['price'])  # Convert to float
-    ticker_in = request_data['holdingsUpdate']['ticker'].upper()
-    shares = int(request_data['holdingsUpdate']['num_shares'])  # Convert to int
 
+    email_in = request_data.get("email", "").lower()
+    holdings_data = request_data.get("holdingsUpdate", {})
+
+    ticker_in = holdings_data.get("ticker", "").upper()
+    price = float(holdings_data.get("price", 0))
+    shares = int(holdings_data.get("num_shares", 0))
+
+    # shares: 5, price: 173.84, ticker_in: ICE, email_in: rishabk2004@gmail.com
+
+    print(f'shares: {shares}, price: {price}, ticker_in: {ticker_in}, email_in: {email_in}')
+
+    # Basic validation
     if not email_in or not ticker_in or price is None or shares is None:
         return jsonify({"error": "Email, ticker, price, and num_shares are required"}), 400
 
     try:
-        # Check if user already holds this stock
         existing_holding = Holdings.query.filter_by(email=email_in, ticker=ticker_in).first()
-
         if existing_holding:
-            # Handle SELL transactions (shares are negative)
+            # ============== SELL (shares < 0) ============== 
             if shares < 0:
-                abs_shares = abs(shares)  # Convert to positive for comparison
-
+                abs_shares = abs(shares)
                 if existing_holding.num_shares < abs_shares:
-                    return jsonify({"error": "Not enough shares to sell"}), 400  # Prevent overselling
+                    return jsonify({"error": "Not enough shares to sell"}), 400
 
-                # Reduce the number of shares
                 existing_holding.num_shares -= abs_shares
-
                 if existing_holding.num_shares == 0:
-                    # Remove holding if all shares are sold
+                    # All sold, remove holding
                     db.session.delete(existing_holding)
                 else:
-                    # Update total value
                     existing_holding.value = float(existing_holding.num_shares * existing_holding.avg_price)
-
+                    # Mark columns as modified for SQLAlchemy
                     flag_modified(existing_holding, "num_shares")
                     flag_modified(existing_holding, "value")
 
                 db.session.commit()
                 return jsonify({"message": "Shares sold successfully"}), 200
 
-            else:  # Handle BUY transactions
+            # ============== BUY (shares > 0) ==============
+            else:
                 original_shares = existing_holding.num_shares
                 existing_holding.num_shares += shares
 
-                # Weighted average price update
-                new_avg_price = ((float(existing_holding.avg_price) * original_shares) + (shares * price)) / existing_holding.num_shares
-                existing_holding.avg_price = new_avg_price
+                # Weighted average price
+                new_avg_price = (
+                    (float(existing_holding.avg_price) * original_shares) +
+                    (shares * float(price))
+                ) / existing_holding.num_shares
 
-                # Update total value
+                existing_holding.avg_price = new_avg_price
                 existing_holding.value = float(existing_holding.num_shares * existing_holding.avg_price)
 
                 flag_modified(existing_holding, "num_shares")
@@ -329,6 +376,7 @@ def updateHoldings():
                 flag_modified(existing_holding, "value")
 
                 db.session.commit()
+
                 return jsonify({
                     "message": "Holding updated successfully",
                     "data": {
@@ -336,17 +384,24 @@ def updateHoldings():
                         "ticker": existing_holding.ticker,
                         "avg_price": existing_holding.avg_price,
                         "num_shares": existing_holding.num_shares,
-                        "value": existing_holding.value
+                        "value": existing_holding.value,
+                        "pinned": existing_holding.pinned
                     }
                 }), 200
 
         else:
+            # ============== New Holding (with nonzero shares) ==============
             if shares < 0:
-                return jsonify({"error": "Cannot sell a stock you do not own"}), 400  # Prevent selling without holdings
+                return jsonify({"error": "Cannot sell a stock you do not own"}), 400
 
-            value_of_shares = price * shares
+            value_of_shares = float(price) * shares
             new_holding = Holdings(
-                email=email_in, ticker=ticker_in, avg_price=price, num_shares=shares, value=value_of_shares
+                email=email_in,
+                ticker=ticker_in,
+                avg_price=float(price),
+                num_shares=shares,
+                value=value_of_shares,
+                pinned=False  # or True, depending on your logic
             )
             db.session.add(new_holding)
             db.session.commit()
@@ -358,45 +413,80 @@ def updateHoldings():
                     "ticker": new_holding.ticker,
                     "avg_price": new_holding.avg_price,
                     "num_shares": new_holding.num_shares,
-                    "value": new_holding.value
+                    "value": new_holding.value,
+                    "pinned": new_holding.pinned
                 }
             }), 200
 
     except Exception as e:
         db.session.rollback()
-        print(f"Database Error: {str(e)}")  # Log the actual error
+        print(f"Database Error: {str(e)}")
         return jsonify({"error": f"Database error: {str(e)}"}), 500
 
-@app.route('/get-sentiment-analysis', methods=['GET'])
-def fetchSentiAnal():
+    
+#pin-holdings
+@app.route('/pin-stock', methods=['POST'])
+def pinStock():
     request_data = request.get_json()
-    print("Received request in risk anal:", request_data) # AMZN
+    email = request_data['email'].lower()
+    ticker = request_data['query'].upper() # get the queried ticker and user email 
     
+    # Early return to handle incomplete request
+    if email == None or ticker == None:
+        return jsonify({"message": "invalid credentials"}), 400
     
-
+    # check if an holding already exists
+    existing_holding = Holdings.query.filter_by(email=email, ticker=ticker).first()
+    if existing_holding:
+        return jsonify({"message": "holding exists already, cant pin it again"}), 401
+    
+    new_pinned_holding = Holdings(email=email, ticker=ticker, avg_price=0.0, num_shares=0, value=0.0, pinned=True)
+    db.session.add(new_pinned_holding)
+    db.session.commit()
+    return jsonify({
+                "message": "New pinned stock added successfully",
+                "data": ticker  # or [ticker_in], if your front end expects an array
+            }), 200
+    
+# use this route to get the pinned stocks
+@app.route('/fetch-pins', methods=['GET'])
+def fetchUserPins():
+    email = request.args.get('userEmail').lower()    
+    holdings = Holdings.query.filter_by(email=email).all()
+    
+    pinned_list = [h.ticker for h in holdings if h.pinned == True]
+    # print(pinned_list) # ['ASTS', 'ABT', 'BDX', 'AVGO', 'NVDA', 'AMZN', 'TSLA']
+    return pinned_list
+#return this array {stock :stock.ticker, pinned: stock.pinned}
+    
 # gets the user's current stock holdings
 @app.route('/get-holdings', methods=['GET'])
 def get_holdings():
     email = request.args.get('userEmail').lower()
     if not email:
         return jsonify({"error": "Missing email parameter"}), 400
-    print('get holdings for: ',email)
+    # print('get holdings for: ',email)
 
     holdings = Holdings.query.filter_by(email=email).all()
     
     # Convert holdings to JSON (example: modify based on your DB schema)
-    
     holdings_list = [
     {
         "ticker": h.ticker,
         "num_shares": h.num_shares,
         "avg_price": float(h.avg_price),
         "value": float(h.value),
-    } for h in holdings]
+        "pinned": bool(h.pinned),
+    } for h in holdings if h.num_shares != 0] # check for whether a stock is pinned or simply a holding 
 
     # Fetch latest stock price for each holding
-    for i, hold in enumerate(holdings):
-        stock = yf.Ticker(hold.ticker)  # Fetch stock data
+    for i, hold in enumerate(holdings_list):
+        if hold['pinned'] == False:
+            continue # dont return this stock as user has pinned it BUT not bought it
+        
+        # print('hold object: ',hold) #{'ticker': 'ASTS', 'num_shares': 8, 'avg_price': 25.0, 'value': 200.0, 'pinned': True}
+        stock = yf.Ticker(hold['ticker'])  # Fetch stock data
+        
         data = stock.history(period="1d")  # Get last trading day's data
         if not data.empty:
             last_quote = data["Close"].iloc[-1]  # Get the latest closing price
@@ -407,10 +497,40 @@ def get_holdings():
             holdings_list[i]['total_return'] = total_return
         else:
             holdings_list[i]["last_quote"] = None  # Handle missing data
-    
+    # print('holdings list: ', holdings_list)
     return jsonify({"holdings": holdings_list}), 200
 
+#use this route to see if a user can unpin a stock
+@app.route('/remove-pinned-stock', methods=['GET'])
+def remove_pin():
+    query = request.args.get('query').upper()
+    email = request.args.get('email').lower()
 
+    # Early return in case of incorrect credentials
+    if not email or not query:
+        return jsonify({"error": "Missing email or ticker parameter"}), 400
+
+    # Find the holding
+    # print('this is the query to be removed: ',query)
+    holding = Holdings.query.filter_by(email=email, ticker=query).first()
+
+    # Ensure holding exists before checking attributes
+    if holding:
+        if holding.avg_price == 0.0:  
+            db.session.delete(holding)
+            db.session.commit()
+            return jsonify({"message": f"Holding for {query} deleted successfully"}), 200
+        else:
+            return jsonify({"error": "Cannot unpin a stock that is actively held"}), 401
+    else:
+        return jsonify({"error": "Holding not found"}), 404
+
+#use this route to get the sentiment analysis for a stock
+@app.route('/get-sentiment-analysis', methods=['GET'])
+def fetchSentiAnal():
+    request_data = request.get_json()
+    print("Received request in risk anal:", request_data) # AMZN
+    pass
 
 # --------------------------------------------------------------------------- helper functions -------------------------------------------------------------------------
 def growthEstimate(stock):

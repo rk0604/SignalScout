@@ -10,3 +10,9 @@ cd frontend
 
 git commands
 1. check if file/folder is ignored for git ignore - git check-ignore -v frontend/node_modules
+
+
+useful postgres queries
+UPDATE public.user_holdings
+SET pinned = TRUE
+WHERE pinned IS NULL;

@@ -16,3 +16,14 @@ ReuseCard.propTypes = {
 };
 
 export default ReuseCard;
+
+export const LoadingWheel = () =>{
+  return(
+<div className="container-loading-wheel">
+  <span></span>
+  <span></span>
+  <span></span>
+  <span></span>
+</div>
+  )
+}

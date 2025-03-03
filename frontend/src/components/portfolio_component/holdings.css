@@ -6,6 +6,7 @@
     background: rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
     color: antiquewhite;
+    margin-top: 2px;
   }
 
   .refreshButton:hover{
@@ -33,7 +34,7 @@
   text-align: center;
   color: #fff;
   height: fit-content;
-  max-height: 600px !important; /* Set a max height to ensure scrollbar appears only when needed */
+  max-height: 170px !important; /* Set a max height to ensure scrollbar appears only when needed */
   overflow-y: auto; /* Enables scrolling when content overflows */
   overflow-x: hidden;
 }

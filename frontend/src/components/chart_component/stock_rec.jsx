@@ -7,14 +7,16 @@ import axios from "axios";
 // stock related component imports 
 import StockOverview from './stockOverview/overView'
 import StockRisk from "./riskComponent/riskAnal";
+import { LoadingWheel } from "./ui_component";
 
 Modal.setAppElement("#root");
-
+//update this to include the pinned stocks in query and fix the sleep timer bs, check fetchPinnedStocks
 export function Recommendations() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL;
   const [selectedStock, setSelectedStock] = useState("");
   const [recommendations, setRecommendations] = useState([]); 
+  const [isLoading, setIsLoading] = useState(false); // track the loading state 
   const [holdingsUpdate, setHoldingsUpdate] = useState({ // used when the user inputs their holding of a stock
     ticker:'',
     price:'',
@@ -27,17 +29,19 @@ export function Recommendations() {
 
   // used to fetch the top 20 stock recs
   const fetchRecs = async()=>{
+    setIsLoading(true); // start spinner
     try{
       console.log('fetching recs')
-      const response = await axios.post(`${API_URL}/fetch-recs`, {
+      const response = await axios.post(`${API_URL}/fetch-recs`, {email}, {
         withCredentials: true,
         headers:{  "Content-Type": "application/json"}
       });
 
-      if(response.status){
+      if(response.status === 200){
         // console.log(response.data);
         setRecommendations(response.data)
         localStorage.setItem('cachedRecs', response.data)
+        setIsLoading(false)
       }
 
     }catch(err){
@@ -67,7 +71,7 @@ export function Recommendations() {
       });
 
       if(response.status === 200){
-        console.log('response: ',response.data)
+        // console.log('response: ',response.data)
       }
 
     }catch(err){
@@ -75,7 +79,7 @@ export function Recommendations() {
       if(response){
         switch(response.status){
           case 400:
-            console.log('invalid details')
+            console.log('not enough shares to sell')
             break;
           default:
             console.warn('internal server error');
@@ -124,22 +128,23 @@ export function Recommendations() {
     <div className="recommend-card">
       <h3 className="recommend-title" onClick={()=>{fetchRecs()}} >Recommendations</h3>
       <div className="recommend-grid">
-      {recommendations ?
-      (
-        Object.entries(recommendations).map(([stock, data]) => (
-        <RecContainer 
-          key={stock} 
-          stock={stock} 
-          rating={data.rating} 
-          indicator={data.indicator}
-          onClick={chosenStock}
-        />
-        ))
-    ):
-      <p className="loading-text">Loading stock recommendations</p>
-      
-      }
-
+      {recommendations ? (
+          isLoading === false ? (
+            Object.entries(recommendations).map(([stock, data]) => (
+              <RecContainer 
+                key={stock} 
+                stock={stock} 
+                rating={data.rating} 
+                indicator={data.indicator}
+                onClick={chosenStock}
+              />
+            ))
+          ) : (
+            <h3 className="loading-text">Loading stock recommendations</h3>
+          )
+        ) : (
+          <h3 className="loading-text">Loading stock recommendations</h3>
+        )}
         <Modal 
           isOpen={modalIsOpen}
           onRequestClose={() => {
