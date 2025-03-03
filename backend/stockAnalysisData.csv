@@ -2683,3 +2683,489 @@ NVDA,N/A,PE Ratio,51.889328
 NVDA,N/A,Dividends Paid,0.18365
 NVDA,N/A,Operating Cash Flow,58958999552
 NVDA,N/A,latest_price,131.27999877929688
+NVDA,2025-01-31,Tax Effect Of Unusual Items,0.0
+NVDA,2025-01-31,Tax Rate For Calcs,0.133
+NVDA,2025-01-31,Normalized EBITDA,86137000000.0
+NVDA,2025-01-31,Total Unusual Items,0.0
+NVDA,2025-01-31,Total Unusual Items Excluding Goodwill,0.0
+NVDA,2025-01-31,Net Income From Continuing Operation Net Minority Interest,72880000000.0
+NVDA,2025-01-31,Reconciled Depreciation,1864000000.0
+NVDA,2025-01-31,Reconciled Cost Of Revenue,32639000000.0
+NVDA,2025-01-31,EBITDA,86137000000.0
+NVDA,2025-01-31,EBIT,84273000000.0
+NVDA,2025-01-31,Net Interest Income,1539000000.0
+NVDA,2025-01-31,Interest Expense,247000000.0
+NVDA,2025-01-31,Interest Income,1786000000.0
+NVDA,2025-01-31,Normalized Income,72880000000.0
+NVDA,2025-01-31,Net Income From Continuing And Discontinued Operation,72880000000.0
+NVDA,2025-01-31,Total Expenses,49044000000.0
+NVDA,2025-01-31,Total Operating Income As Reported,81453000000.0
+NVDA,2025-01-31,Diluted Average Shares,24804000000.0
+NVDA,2025-01-31,Basic Average Shares,24555000000.0
+NVDA,2025-01-31,Diluted EPS,2.94
+NVDA,2025-01-31,Basic EPS,2.97
+NVDA,2025-01-31,Diluted NI Availto Com Stockholders,72880000000.0
+NVDA,2025-01-31,Net Income Common Stockholders,72880000000.0
+NVDA,2025-01-31,Net Income,72880000000.0
+NVDA,2025-01-31,Net Income Including Noncontrolling Interests,72880000000.0
+NVDA,2025-01-31,Net Income Continuous Operations,72880000000.0
+NVDA,2025-01-31,Tax Provision,11146000000.0
+NVDA,2025-01-31,Pretax Income,84026000000.0
+NVDA,2025-01-31,Other Income Expense,1034000000.0
+NVDA,2025-01-31,Other Non Operating Income Expenses,1034000000.0
+NVDA,2025-01-31,Special Income Charges,0.0
+NVDA,2025-01-31,Restructuring And Mergern Acquisition,0.0
+NVDA,2025-01-31,Net Non Operating Interest Income Expense,1539000000.0
+NVDA,2025-01-31,Interest Expense Non Operating,247000000.0
+NVDA,2025-01-31,Interest Income Non Operating,1786000000.0
+NVDA,2025-01-31,Operating Income,81453000000.0
+NVDA,2025-01-31,Operating Expense,16405000000.0
+NVDA,2025-01-31,Research And Development,12914000000.0
+NVDA,2025-01-31,Selling General And Administration,3491000000.0
+NVDA,2025-01-31,Gross Profit,97858000000.0
+NVDA,2025-01-31,Cost Of Revenue,32639000000.0
+NVDA,2025-01-31,Total Revenue,130497000000.0
+NVDA,2025-01-31,Operating Revenue,130497000000.0
+MSFT,2024-06-30,Tax Effect Of Unusual Items,-99918000.0
+MSFT,2024-06-30,Tax Rate For Calcs,0.182
+MSFT,2024-06-30,Normalized EBITDA,133558000000.0
+MSFT,2024-06-30,Total Unusual Items,-549000000.0
+MSFT,2024-06-30,Total Unusual Items Excluding Goodwill,-549000000.0
+MSFT,2024-06-30,Net Income From Continuing Operation Net Minority Interest,88136000000.0
+MSFT,2024-06-30,Reconciled Depreciation,22287000000.0
+MSFT,2024-06-30,Reconciled Cost Of Revenue,74114000000.0
+MSFT,2024-06-30,EBITDA,133009000000.0
+MSFT,2024-06-30,EBIT,110722000000.0
+MSFT,2024-06-30,Net Interest Income,222000000.0
+MSFT,2024-06-30,Interest Expense,2935000000.0
+MSFT,2024-06-30,Interest Income,3157000000.0
+MSFT,2024-06-30,Normalized Income,88585082000.0
+MSFT,2024-06-30,Net Income From Continuing And Discontinued Operation,88136000000.0
+MSFT,2024-06-30,Total Expenses,135689000000.0
+MSFT,2024-06-30,Total Operating Income As Reported,109433000000.0
+MSFT,2024-06-30,Diluted Average Shares,7469000000.0
+MSFT,2024-06-30,Basic Average Shares,7431000000.0
+MSFT,2024-06-30,Diluted EPS,11.8
+MSFT,2024-06-30,Basic EPS,11.86
+MSFT,2024-06-30,Diluted NI Availto Com Stockholders,88136000000.0
+MSFT,2024-06-30,Net Income Common Stockholders,88136000000.0
+MSFT,2024-06-30,Net Income,88136000000.0
+MSFT,2024-06-30,Net Income Including Noncontrolling Interests,88136000000.0
+MSFT,2024-06-30,Net Income Continuous Operations,88136000000.0
+MSFT,2024-06-30,Tax Provision,19651000000.0
+MSFT,2024-06-30,Pretax Income,107787000000.0
+MSFT,2024-06-30,Other Income Expense,-1868000000.0
+MSFT,2024-06-30,Other Non Operating Income Expenses,-1319000000.0
+MSFT,2024-06-30,Special Income Charges,-206000000.0
+MSFT,2024-06-30,Write Off,206000000.0
+MSFT,2024-06-30,Gain On Sale Of Security,-343000000.0
+MSFT,2024-06-30,Net Non Operating Interest Income Expense,222000000.0
+MSFT,2024-06-30,Interest Expense Non Operating,2935000000.0
+MSFT,2024-06-30,Interest Income Non Operating,3157000000.0
+MSFT,2024-06-30,Operating Income,109433000000.0
+MSFT,2024-06-30,Operating Expense,61575000000.0
+MSFT,2024-06-30,Research And Development,29510000000.0
+MSFT,2024-06-30,Selling General And Administration,32065000000.0
+MSFT,2024-06-30,Selling And Marketing Expense,24456000000.0
+MSFT,2024-06-30,General And Administrative Expense,7609000000.0
+MSFT,2024-06-30,Other Gand A,7609000000.0
+MSFT,2024-06-30,Gross Profit,171008000000.0
+MSFT,2024-06-30,Cost Of Revenue,74114000000.0
+MSFT,2024-06-30,Total Revenue,245122000000.0
+MSFT,2024-06-30,Operating Revenue,245122000000.0
+MSFT,2023-06-30,Tax Effect Of Unusual Items,-2850000.0
+MSFT,2023-06-30,Tax Rate For Calcs,0.19
+MSFT,2023-06-30,Normalized EBITDA,105155000000.0
+MSFT,2023-06-30,Total Unusual Items,-15000000.0
+MSFT,2023-06-30,Total Unusual Items Excluding Goodwill,-15000000.0
+MSFT,2023-06-30,Net Income From Continuing Operation Net Minority Interest,72361000000.0
+MSFT,2023-06-30,Reconciled Depreciation,13861000000.0
+MSFT,2023-06-30,Reconciled Cost Of Revenue,65863000000.0
+MSFT,2023-06-30,EBITDA,105140000000.0
+MSFT,2023-06-30,EBIT,91279000000.0
+MSFT,2023-06-30,Net Interest Income,1026000000.0
+MSFT,2023-06-30,Interest Expense,1968000000.0
+MSFT,2023-06-30,Interest Income,2994000000.0
+MSFT,2023-06-30,Normalized Income,72373150000.0
+MSFT,2023-06-30,Net Income From Continuing And Discontinued Operation,72361000000.0
+MSFT,2023-06-30,Total Expenses,123392000000.0
+MSFT,2023-06-30,Total Operating Income As Reported,88523000000.0
+MSFT,2023-06-30,Diluted Average Shares,7472000000.0
+MSFT,2023-06-30,Basic Average Shares,7446000000.0
+MSFT,2023-06-30,Diluted EPS,9.68
+MSFT,2023-06-30,Basic EPS,9.72
+MSFT,2023-06-30,Diluted NI Availto Com Stockholders,72361000000.0
+MSFT,2023-06-30,Net Income Common Stockholders,72361000000.0
+MSFT,2023-06-30,Net Income,72361000000.0
+MSFT,2023-06-30,Net Income Including Noncontrolling Interests,72361000000.0
+MSFT,2023-06-30,Net Income Continuous Operations,72361000000.0
+MSFT,2023-06-30,Tax Provision,16950000000.0
+MSFT,2023-06-30,Pretax Income,89311000000.0
+MSFT,2023-06-30,Other Income Expense,-238000000.0
+MSFT,2023-06-30,Other Non Operating Income Expenses,-223000000.0
+MSFT,2023-06-30,Special Income Charges,-30000000.0
+MSFT,2023-06-30,Write Off,30000000.0
+MSFT,2023-06-30,Gain On Sale Of Security,15000000.0
+MSFT,2023-06-30,Net Non Operating Interest Income Expense,1026000000.0
+MSFT,2023-06-30,Interest Expense Non Operating,1968000000.0
+MSFT,2023-06-30,Interest Income Non Operating,2994000000.0
+MSFT,2023-06-30,Operating Income,88523000000.0
+MSFT,2023-06-30,Operating Expense,57529000000.0
+MSFT,2023-06-30,Research And Development,27195000000.0
+MSFT,2023-06-30,Selling General And Administration,30334000000.0
+MSFT,2023-06-30,Selling And Marketing Expense,22759000000.0
+MSFT,2023-06-30,General And Administrative Expense,7575000000.0
+MSFT,2023-06-30,Other Gand A,7575000000.0
+MSFT,2023-06-30,Gross Profit,146052000000.0
+MSFT,2023-06-30,Cost Of Revenue,65863000000.0
+MSFT,2023-06-30,Total Revenue,211915000000.0
+MSFT,2023-06-30,Operating Revenue,211915000000.0
+MSFT,2022-06-30,Tax Effect Of Unusual Items,43754000.0
+MSFT,2022-06-30,Tax Rate For Calcs,0.131
+MSFT,2022-06-30,Normalized EBITDA,99905000000.0
+MSFT,2022-06-30,Total Unusual Items,334000000.0
+MSFT,2022-06-30,Total Unusual Items Excluding Goodwill,334000000.0
+MSFT,2022-06-30,Net Income From Continuing Operation Net Minority Interest,72738000000.0
+MSFT,2022-06-30,Reconciled Depreciation,14460000000.0
+MSFT,2022-06-30,Reconciled Cost Of Revenue,62650000000.0
+MSFT,2022-06-30,EBITDA,100239000000.0
+MSFT,2022-06-30,EBIT,85779000000.0
+MSFT,2022-06-30,Net Interest Income,31000000.0
+MSFT,2022-06-30,Interest Expense,2063000000.0
+MSFT,2022-06-30,Interest Income,2094000000.0
+MSFT,2022-06-30,Normalized Income,72447754000.0
+MSFT,2022-06-30,Net Income From Continuing And Discontinued Operation,72738000000.0
+MSFT,2022-06-30,Total Expenses,114887000000.0
+MSFT,2022-06-30,Total Operating Income As Reported,83383000000.0
+MSFT,2022-06-30,Diluted Average Shares,7540000000.0
+MSFT,2022-06-30,Basic Average Shares,7496000000.0
+MSFT,2022-06-30,Diluted EPS,9.65
+MSFT,2022-06-30,Basic EPS,9.7
+MSFT,2022-06-30,Diluted NI Availto Com Stockholders,72738000000.0
+MSFT,2022-06-30,Net Income Common Stockholders,72738000000.0
+MSFT,2022-06-30,Net Income,72738000000.0
+MSFT,2022-06-30,Net Income Including Noncontrolling Interests,72738000000.0
+MSFT,2022-06-30,Net Income Continuous Operations,72738000000.0
+MSFT,2022-06-30,Tax Provision,10978000000.0
+MSFT,2022-06-30,Pretax Income,83716000000.0
+MSFT,2022-06-30,Other Income Expense,302000000.0
+MSFT,2022-06-30,Other Non Operating Income Expenses,-32000000.0
+MSFT,2022-06-30,Special Income Charges,-101000000.0
+MSFT,2022-06-30,Write Off,101000000.0
+MSFT,2022-06-30,Gain On Sale Of Security,435000000.0
+MSFT,2022-06-30,Net Non Operating Interest Income Expense,31000000.0
+MSFT,2022-06-30,Interest Expense Non Operating,2063000000.0
+MSFT,2022-06-30,Interest Income Non Operating,2094000000.0
+MSFT,2022-06-30,Operating Income,83383000000.0
+MSFT,2022-06-30,Operating Expense,52237000000.0
+MSFT,2022-06-30,Research And Development,24512000000.0
+MSFT,2022-06-30,Selling General And Administration,27725000000.0
+MSFT,2022-06-30,Selling And Marketing Expense,21825000000.0
+MSFT,2022-06-30,General And Administrative Expense,5900000000.0
+MSFT,2022-06-30,Other Gand A,5900000000.0
+MSFT,2022-06-30,Gross Profit,135620000000.0
+MSFT,2022-06-30,Cost Of Revenue,62650000000.0
+MSFT,2022-06-30,Total Revenue,198270000000.0
+MSFT,2022-06-30,Operating Revenue,198270000000.0
+MSFT,2021-06-30,Tax Effect Of Unusual Items,180160797.164637
+MSFT,2021-06-30,Tax Rate For Calcs,0.138266
+MSFT,2021-06-30,Normalized EBITDA,83831000000.0
+MSFT,2021-06-30,Total Unusual Items,1303000000.0
+MSFT,2021-06-30,Total Unusual Items Excluding Goodwill,1303000000.0
+MSFT,2021-06-30,Net Income From Continuing Operation Net Minority Interest,61271000000.0
+MSFT,2021-06-30,Reconciled Depreciation,11686000000.0
+MSFT,2021-06-30,Reconciled Cost Of Revenue,52232000000.0
+MSFT,2021-06-30,EBITDA,85134000000.0
+MSFT,2021-06-30,EBIT,73448000000.0
+MSFT,2021-06-30,Net Interest Income,-215000000.0
+MSFT,2021-06-30,Interest Expense,2346000000.0
+MSFT,2021-06-30,Interest Income,2131000000.0
+MSFT,2021-06-30,Normalized Income,60148160797.164635
+MSFT,2021-06-30,Net Income From Continuing And Discontinued Operation,61271000000.0
+MSFT,2021-06-30,Total Expenses,98172000000.0
+MSFT,2021-06-30,Total Operating Income As Reported,69916000000.0
+MSFT,2021-06-30,Diluted Average Shares,7608000000.0
+MSFT,2021-06-30,Basic Average Shares,7547000000.0
+MSFT,2021-06-30,Diluted EPS,8.05
+MSFT,2021-06-30,Basic EPS,8.12
+MSFT,2021-06-30,Diluted NI Availto Com Stockholders,61271000000.0
+MSFT,2021-06-30,Net Income Common Stockholders,61271000000.0
+MSFT,2021-06-30,Net Income,61271000000.0
+MSFT,2021-06-30,Net Income Including Noncontrolling Interests,61271000000.0
+MSFT,2021-06-30,Net Income Continuous Operations,61271000000.0
+MSFT,2021-06-30,Tax Provision,9831000000.0
+MSFT,2021-06-30,Pretax Income,71102000000.0
+MSFT,2021-06-30,Other Income Expense,1401000000.0
+MSFT,2021-06-30,Other Non Operating Income Expenses,98000000.0
+MSFT,2021-06-30,Special Income Charges,-13000000.0
+MSFT,2021-06-30,Write Off,13000000.0
+MSFT,2021-06-30,Gain On Sale Of Security,1316000000.0
+MSFT,2021-06-30,Net Non Operating Interest Income Expense,-215000000.0
+MSFT,2021-06-30,Interest Expense Non Operating,2346000000.0
+MSFT,2021-06-30,Interest Income Non Operating,2131000000.0
+MSFT,2021-06-30,Operating Income,69916000000.0
+MSFT,2021-06-30,Operating Expense,45940000000.0
+MSFT,2021-06-30,Research And Development,20716000000.0
+MSFT,2021-06-30,Selling General And Administration,25224000000.0
+MSFT,2021-06-30,Selling And Marketing Expense,20117000000.0
+MSFT,2021-06-30,General And Administrative Expense,5107000000.0
+MSFT,2021-06-30,Other Gand A,5107000000.0
+MSFT,2021-06-30,Gross Profit,115856000000.0
+MSFT,2021-06-30,Cost Of Revenue,52232000000.0
+MSFT,2021-06-30,Total Revenue,168088000000.0
+MSFT,2021-06-30,Operating Revenue,168088000000.0
+MSFT,N/A,Market Cap,2918060130304
+MSFT,N/A,PE Ratio,31.681194
+MSFT,N/A,Dividends Paid,31.249999999999996
+MSFT,N/A,Operating Cash Flow,125582999552
+MSFT,N/A,latest_price,392.5299987792969
+ICE,2024-12-31,Tax Effect Of Unusual Items,-23920000.0
+ICE,2024-12-31,Tax Rate For Calcs,0.23
+ICE,2024-12-31,Normalized EBITDA,6179000000.0
+ICE,2024-12-31,Total Unusual Items,-104000000.0
+ICE,2024-12-31,Total Unusual Items Excluding Goodwill,-104000000.0
+ICE,2024-12-31,Net Income From Continuing Operation Net Minority Interest,2754000000.0
+ICE,2024-12-31,Reconciled Depreciation,1537000000.0
+ICE,2024-12-31,Reconciled Cost Of Revenue,5239000000.0
+ICE,2024-12-31,EBITDA,6075000000.0
+ICE,2024-12-31,EBIT,4538000000.0
+ICE,2024-12-31,Net Interest Income,-769000000.0
+ICE,2024-12-31,Interest Expense,910000000.0
+ICE,2024-12-31,Interest Income,141000000.0
+ICE,2024-12-31,Normalized Income,2834080000.0
+ICE,2024-12-31,Net Income From Continuing And Discontinued Operation,2754000000.0
+ICE,2024-12-31,Total Expenses,7348000000.0
+ICE,2024-12-31,Rent Expense Supplemental,111000000.0
+ICE,2024-12-31,Total Operating Income As Reported,4309000000.0
+ICE,2024-12-31,Diluted Average Shares,N/A
+ICE,2024-12-31,Basic Average Shares,N/A
+ICE,2024-12-31,Diluted EPS,N/A
+ICE,2024-12-31,Basic EPS,N/A
+ICE,2024-12-31,Diluted NI Availto Com Stockholders,2754000000.0
+ICE,2024-12-31,Net Income Common Stockholders,2754000000.0
+ICE,2024-12-31,Net Income,2754000000.0
+ICE,2024-12-31,Minority Interests,-48000000.0
+ICE,2024-12-31,Net Income Including Noncontrolling Interests,2802000000.0
+ICE,2024-12-31,Net Income Continuous Operations,2802000000.0
+ICE,2024-12-31,Tax Provision,826000000.0
+ICE,2024-12-31,Pretax Income,3628000000.0
+ICE,2024-12-31,Other Income Expense,-16000000.0
+ICE,2024-12-31,Other Non Operating Income Expenses,88000000.0
+ICE,2024-12-31,Special Income Charges,-104000000.0
+ICE,2024-12-31,Restructuring And Mergern Acquisition,104000000.0
+ICE,2024-12-31,Net Non Operating Interest Income Expense,-769000000.0
+ICE,2024-12-31,Interest Expense Non Operating,910000000.0
+ICE,2024-12-31,Interest Income Non Operating,141000000.0
+ICE,2024-12-31,Operating Income,4413000000.0
+ICE,2024-12-31,Operating Expense,2109000000.0
+ICE,2024-12-31,Depreciation Amortization Depletion Income Statement,1537000000.0
+ICE,2024-12-31,Depreciation And Amortization In Income Statement,1537000000.0
+ICE,2024-12-31,Selling General And Administration,572000000.0
+ICE,2024-12-31,General And Administrative Expense,572000000.0
+ICE,2024-12-31,Other Gand A,461000000.0
+ICE,2024-12-31,Rent And Landing Fees,111000000.0
+ICE,2024-12-31,Gross Profit,6522000000.0
+ICE,2024-12-31,Cost Of Revenue,5239000000.0
+ICE,2024-12-31,Total Revenue,11761000000.0
+ICE,2024-12-31,Operating Revenue,11761000000.0
+ICE,2023-12-31,Tax Effect Of Unusual Items,-43040000.0
+ICE,2023-12-31,Tax Rate For Calcs,0.16
+ICE,2023-12-31,Normalized EBITDA,5186000000.0
+ICE,2023-12-31,Total Unusual Items,-269000000.0
+ICE,2023-12-31,Total Unusual Items Excluding Goodwill,-269000000.0
+ICE,2023-12-31,Net Income From Continuing Operation Net Minority Interest,2368000000.0
+ICE,2023-12-31,Reconciled Depreciation,1215000000.0
+ICE,2023-12-31,Reconciled Cost Of Revenue,4244000000.0
+ICE,2023-12-31,EBITDA,4917000000.0
+ICE,2023-12-31,EBIT,3702000000.0
+ICE,2023-12-31,Net Interest Income,-489000000.0
+ICE,2023-12-31,Interest Expense,808000000.0
+ICE,2023-12-31,Interest Income,319000000.0
+ICE,2023-12-31,Normalized Income,2593960000.0
+ICE,2023-12-31,Net Income From Continuing And Discontinued Operation,2368000000.0
+ICE,2023-12-31,Total Expenses,5940000000.0
+ICE,2023-12-31,Rent Expense Supplemental,92000000.0
+ICE,2023-12-31,Total Operating Income As Reported,3694000000.0
+ICE,2023-12-31,Diluted Average Shares,565000000.0
+ICE,2023-12-31,Basic Average Shares,564000000.0
+ICE,2023-12-31,Diluted EPS,4.19
+ICE,2023-12-31,Basic EPS,4.2
+ICE,2023-12-31,Diluted NI Availto Com Stockholders,2368000000.0
+ICE,2023-12-31,Net Income Common Stockholders,2368000000.0
+ICE,2023-12-31,Net Income,2368000000.0
+ICE,2023-12-31,Minority Interests,-70000000.0
+ICE,2023-12-31,Net Income Including Noncontrolling Interests,2438000000.0
+ICE,2023-12-31,Net Income Continuous Operations,2438000000.0
+ICE,2023-12-31,Tax Provision,456000000.0
+ICE,2023-12-31,Pretax Income,2894000000.0
+ICE,2023-12-31,Other Income Expense,-580000000.0
+ICE,2023-12-31,Other Non Operating Income Expenses,-311000000.0
+ICE,2023-12-31,Special Income Charges,-269000000.0
+ICE,2023-12-31,Restructuring And Mergern Acquisition,269000000.0
+ICE,2023-12-31,Net Non Operating Interest Income Expense,-489000000.0
+ICE,2023-12-31,Interest Expense Non Operating,808000000.0
+ICE,2023-12-31,Interest Income Non Operating,319000000.0
+ICE,2023-12-31,Operating Income,3963000000.0
+ICE,2023-12-31,Operating Expense,1696000000.0
+ICE,2023-12-31,Depreciation Amortization Depletion Income Statement,1215000000.0
+ICE,2023-12-31,Depreciation And Amortization In Income Statement,1215000000.0
+ICE,2023-12-31,Selling General And Administration,481000000.0
+ICE,2023-12-31,General And Administrative Expense,481000000.0
+ICE,2023-12-31,Other Gand A,389000000.0
+ICE,2023-12-31,Rent And Landing Fees,92000000.0
+ICE,2023-12-31,Gross Profit,5659000000.0
+ICE,2023-12-31,Cost Of Revenue,4244000000.0
+ICE,2023-12-31,Total Revenue,9903000000.0
+ICE,2023-12-31,Operating Revenue,9903000000.0
+ICE,2022-12-31,Tax Effect Of Unusual Items,-15810000.0
+ICE,2022-12-31,Tax Rate For Calcs,0.17
+ICE,2022-12-31,Normalized EBITDA,3548000000.0
+ICE,2022-12-31,Total Unusual Items,-93000000.0
+ICE,2022-12-31,Total Unusual Items Excluding Goodwill,-93000000.0
+ICE,2022-12-31,Net Income From Continuing Operation Net Minority Interest,1446000000.0
+ICE,2022-12-31,Reconciled Depreciation,1031000000.0
+ICE,2022-12-31,Reconciled Cost Of Revenue,4434000000.0
+ICE,2022-12-31,EBITDA,3455000000.0
+ICE,2022-12-31,EBIT,2424000000.0
+ICE,2022-12-31,Net Interest Income,-508000000.0
+ICE,2022-12-31,Interest Expense,616000000.0
+ICE,2022-12-31,Interest Income,108000000.0
+ICE,2022-12-31,Normalized Income,1523190000.0
+ICE,2022-12-31,Net Income From Continuing And Discontinued Operation,1446000000.0
+ICE,2022-12-31,Total Expenses,5905000000.0
+ICE,2022-12-31,Rent Expense Supplemental,83000000.0
+ICE,2022-12-31,Total Operating Income As Reported,3638000000.0
+ICE,2022-12-31,Diluted Average Shares,561000000.0
+ICE,2022-12-31,Basic Average Shares,559000000.0
+ICE,2022-12-31,Diluted EPS,2.58
+ICE,2022-12-31,Basic EPS,2.59
+ICE,2022-12-31,Diluted NI Availto Com Stockholders,1446000000.0
+ICE,2022-12-31,Net Income Common Stockholders,1446000000.0
+ICE,2022-12-31,Net Income,1446000000.0
+ICE,2022-12-31,Minority Interests,-52000000.0
+ICE,2022-12-31,Net Income Including Noncontrolling Interests,1498000000.0
+ICE,2022-12-31,Net Income Continuous Operations,1498000000.0
+ICE,2022-12-31,Tax Provision,310000000.0
+ICE,2022-12-31,Pretax Income,1808000000.0
+ICE,2022-12-31,Other Income Expense,-1415000000.0
+ICE,2022-12-31,Other Non Operating Income Expenses,-1322000000.0
+ICE,2022-12-31,Special Income Charges,-93000000.0
+ICE,2022-12-31,Restructuring And Mergern Acquisition,93000000.0
+ICE,2022-12-31,Net Non Operating Interest Income Expense,-508000000.0
+ICE,2022-12-31,Interest Expense Non Operating,616000000.0
+ICE,2022-12-31,Interest Income Non Operating,108000000.0
+ICE,2022-12-31,Operating Income,3731000000.0
+ICE,2022-12-31,Operating Expense,1471000000.0
+ICE,2022-12-31,Depreciation Amortization Depletion Income Statement,1031000000.0
+ICE,2022-12-31,Depreciation And Amortization In Income Statement,1031000000.0
+ICE,2022-12-31,Selling General And Administration,440000000.0
+ICE,2022-12-31,General And Administrative Expense,440000000.0
+ICE,2022-12-31,Other Gand A,357000000.0
+ICE,2022-12-31,Rent And Landing Fees,83000000.0
+ICE,2022-12-31,Gross Profit,5202000000.0
+ICE,2022-12-31,Cost Of Revenue,4434000000.0
+ICE,2022-12-31,Total Revenue,9636000000.0
+ICE,2022-12-31,Operating Revenue,9636000000.0
+ICE,2021-12-31,Tax Effect Of Unusual Items,-29580000.0
+ICE,2021-12-31,Tax Rate For Calcs,0.29
+ICE,2021-12-31,Normalized EBITDA,7232000000.0
+ICE,2021-12-31,Total Unusual Items,-102000000.0
+ICE,2021-12-31,Total Unusual Items Excluding Goodwill,-102000000.0
+ICE,2021-12-31,Net Income From Continuing Operation Net Minority Interest,4058000000.0
+ICE,2021-12-31,Reconciled Depreciation,1009000000.0
+ICE,2021-12-31,Reconciled Cost Of Revenue,4150000000.0
+ICE,2021-12-31,EBITDA,7130000000.0
+ICE,2021-12-31,EBIT,6121000000.0
+ICE,2021-12-31,Net Interest Income,-422000000.0
+ICE,2021-12-31,Interest Expense,423000000.0
+ICE,2021-12-31,Interest Income,1000000.0
+ICE,2021-12-31,Normalized Income,4130420000.0
+ICE,2021-12-31,Net Income From Continuing And Discontinued Operation,4058000000.0
+ICE,2021-12-31,Total Expenses,5617000000.0
+ICE,2021-12-31,Rent Expense Supplemental,84000000.0
+ICE,2021-12-31,Total Operating Income As Reported,3449000000.0
+ICE,2021-12-31,Diluted Average Shares,565000000.0
+ICE,2021-12-31,Basic Average Shares,562000000.0
+ICE,2021-12-31,Diluted EPS,7.18
+ICE,2021-12-31,Basic EPS,7.22
+ICE,2021-12-31,Diluted NI Availto Com Stockholders,4058000000.0
+ICE,2021-12-31,Net Income Common Stockholders,4058000000.0
+ICE,2021-12-31,Net Income,4058000000.0
+ICE,2021-12-31,Minority Interests,-11000000.0
+ICE,2021-12-31,Net Income Including Noncontrolling Interests,4069000000.0
+ICE,2021-12-31,Net Income Continuous Operations,4069000000.0
+ICE,2021-12-31,Tax Provision,1629000000.0
+ICE,2021-12-31,Pretax Income,5698000000.0
+ICE,2021-12-31,Other Income Expense,2569000000.0
+ICE,2021-12-31,Other Non Operating Income Expenses,2671000000.0
+ICE,2021-12-31,Special Income Charges,-102000000.0
+ICE,2021-12-31,Restructuring And Mergern Acquisition,102000000.0
+ICE,2021-12-31,Net Non Operating Interest Income Expense,-422000000.0
+ICE,2021-12-31,Interest Expense Non Operating,423000000.0
+ICE,2021-12-31,Interest Income Non Operating,1000000.0
+ICE,2021-12-31,Operating Income,3551000000.0
+ICE,2021-12-31,Operating Expense,1467000000.0
+ICE,2021-12-31,Depreciation Amortization Depletion Income Statement,1009000000.0
+ICE,2021-12-31,Depreciation And Amortization In Income Statement,1009000000.0
+ICE,2021-12-31,Selling General And Administration,458000000.0
+ICE,2021-12-31,General And Administrative Expense,458000000.0
+ICE,2021-12-31,Other Gand A,374000000.0
+ICE,2021-12-31,Rent And Landing Fees,84000000.0
+ICE,2021-12-31,Gross Profit,5018000000.0
+ICE,2021-12-31,Cost Of Revenue,4150000000.0
+ICE,2021-12-31,Total Revenue,9168000000.0
+ICE,2021-12-31,Operating Revenue,9168000000.0
+ICE,2020-12-31,Tax Effect Of Unusual Items,N/A
+ICE,2020-12-31,Tax Rate For Calcs,N/A
+ICE,2020-12-31,Normalized EBITDA,N/A
+ICE,2020-12-31,Total Unusual Items,N/A
+ICE,2020-12-31,Total Unusual Items Excluding Goodwill,N/A
+ICE,2020-12-31,Net Income From Continuing Operation Net Minority Interest,N/A
+ICE,2020-12-31,Reconciled Depreciation,N/A
+ICE,2020-12-31,Reconciled Cost Of Revenue,N/A
+ICE,2020-12-31,EBITDA,N/A
+ICE,2020-12-31,EBIT,N/A
+ICE,2020-12-31,Net Interest Income,N/A
+ICE,2020-12-31,Interest Expense,N/A
+ICE,2020-12-31,Interest Income,N/A
+ICE,2020-12-31,Normalized Income,N/A
+ICE,2020-12-31,Net Income From Continuing And Discontinued Operation,N/A
+ICE,2020-12-31,Total Expenses,N/A
+ICE,2020-12-31,Rent Expense Supplemental,N/A
+ICE,2020-12-31,Total Operating Income As Reported,N/A
+ICE,2020-12-31,Diluted Average Shares,555000000.0
+ICE,2020-12-31,Basic Average Shares,552000000.0
+ICE,2020-12-31,Diluted EPS,3.77
+ICE,2020-12-31,Basic EPS,3.79
+ICE,2020-12-31,Diluted NI Availto Com Stockholders,N/A
+ICE,2020-12-31,Net Income Common Stockholders,N/A
+ICE,2020-12-31,Net Income,N/A
+ICE,2020-12-31,Minority Interests,N/A
+ICE,2020-12-31,Net Income Including Noncontrolling Interests,N/A
+ICE,2020-12-31,Net Income Continuous Operations,N/A
+ICE,2020-12-31,Tax Provision,N/A
+ICE,2020-12-31,Pretax Income,N/A
+ICE,2020-12-31,Other Income Expense,N/A
+ICE,2020-12-31,Other Non Operating Income Expenses,N/A
+ICE,2020-12-31,Special Income Charges,N/A
+ICE,2020-12-31,Restructuring And Mergern Acquisition,N/A
+ICE,2020-12-31,Net Non Operating Interest Income Expense,N/A
+ICE,2020-12-31,Interest Expense Non Operating,N/A
+ICE,2020-12-31,Interest Income Non Operating,N/A
+ICE,2020-12-31,Operating Income,N/A
+ICE,2020-12-31,Operating Expense,N/A
+ICE,2020-12-31,Depreciation Amortization Depletion Income Statement,N/A
+ICE,2020-12-31,Depreciation And Amortization In Income Statement,N/A
+ICE,2020-12-31,Selling General And Administration,N/A
+ICE,2020-12-31,General And Administrative Expense,N/A
+ICE,2020-12-31,Other Gand A,N/A
+ICE,2020-12-31,Rent And Landing Fees,N/A
+ICE,2020-12-31,Gross Profit,N/A
+ICE,2020-12-31,Cost Of Revenue,N/A
+ICE,2020-12-31,Total Revenue,N/A
+ICE,2020-12-31,Operating Revenue,N/A
+ICE,N/A,Market Cap,99905363968
+ICE,N/A,PE Ratio,36.376568
+ICE,N/A,Dividends Paid,12.289999999999997
+ICE,N/A,Operating Cash Flow,4608999936
+ICE,N/A,latest_price,173.8800048828125

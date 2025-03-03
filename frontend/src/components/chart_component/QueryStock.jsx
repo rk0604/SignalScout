@@ -1,91 +1,234 @@
-import { useState } from 'react';
+import { useState, useContext, useEffect } from 'react';
 import './query.css';
+import Modal from 'react-modal';
+import StockOverview from './stockOverview/overView';
+import { StockContext } from '../StockContext';
 import axios from 'axios';
 
-// this component will let a user search for a specific stock and get its analysis 
+Modal.setAppElement("#root");
+
+// This component allows a user to search for a specific stock and get its analysis 
 const QueryStock = () => {
-  const API_URL = import.meta.env.VITE_API_URL; // 
-  const [queriedStockDetails, setQueriedStockDetails] = useState(''); // holds the queried stock data
-  const [query, setQuery] = useState(''); // holds the ticker of the stock to be queried
+  const { pinnedStocks, setPinnedStocks } = useContext(StockContext); //access the context
+  const [isPinned, setIsPinned] = useState(false); // indicates if a queried stock is already pinned or not?
 
+  const [query, setQuery] = useState(''); // Holds the ticker of the stock to be queried
+  const [modalIsOpen, setModalIsOpen] = useState(false); // Manages the closed/open state of the modal 
+  const [stockTicker, setStockTicker] = useState(''); // Holds the stock ticker for display
+  const [selectedStock, setSelectedStock] = useState(null); // Holds selected stock for analysis
+  const [email, setEmail] = useState('')
+  const API_URL = import.meta.env.VITE_API_URL;
 
-  // queries for the stock based on userInput
-  const queryForStock = async() => {
-    //early exit in the event of empty query
-    if(query === null || query === ''){  return}
+  // ----------------------------------------------Helper Functions------------------------------------------------------------------------
+
+  // Handles the query submission event  
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (query.trim() !== "") {
+      setStockTicker(query.toUpperCase());
+  
+      let found = pinnedStocks.filter((stockObj) => {
+        return stockObj.toUpperCase() === query.toUpperCase();
+      });
+  
+      if (found.length === 0) {
+        setIsPinned(false);
+      } else {
+        setIsPinned(true);
+      }
+    }
+  };
+  
+
+  // Handles the change in the form input
+  const handleChange = (event) => {
+    setQuery(event.target.value);
+  };
+
+  //sends the query hook to the backend and a new entry is created. 
+  const handlePin = async() =>{
+    if(!query || query === ''){ 
+      console.log('cannot pin an empty stock, query: ', query);
+      return;
+    }
+
+    //query the pinnedStocks to see 
+    let found = pinnedStocks.filter((stockObj) => {
+      return stockObj.toUpperCase() === query.toUpperCase();
+    });
+
+    if (found.length !== 0) {
+      //stock is already pinned
+      console.log('stock already pinned, now removing it')
+      return
+    }
+
+    const payload = {
+      email,
+      query
+    };    
 
     try{
-      const response = await axios.get(`${API_URL}/fetch-stock-data`, {
-        params: { query }, 
+      const response = await axios.post(`${API_URL}/pin-stock`, payload,{
+        withCredentials:true,
+        headers:{  "Content-Type": "application/json"}
+      });
+
+      if(response.status === 200){
+        // console.log('response: ',response.data)
+        setPinnedStocks((prev) => [...(prev || []), response.data.data]); // append the new stock to the previous list
+        setIsPinned(true)
+      }
+
+    }catch(err){
+      const {response} = err;
+      switch(response.status){
+        case 400:
+          console.log("email and ticker details are required");
+          break;
+        case 401:
+          console.log('holding exists already, and is pinned');
+          break;
+        default:
+          console.log('internal server error');
+          break;
+      }
+    }
+  }
+
+  //sets the pinned attribute in DB entry to false
+  // early exit if user has holdings, DONT let user unpin a stock they own share sin 
+  const handleRemovePin = async() =>{
+    if(!query || query === ''){ 
+      console.log('invalid query')
+      return
+    }
+
+    try{
+      const response = await axios.get(`${API_URL}/remove-pinned-stock`, {
+        params: {query: query, email: email},
         withCredentials: true, 
         headers: {
             'Accept': 'application/json',
         }
       });
-  
+
       if(response.status === 200){
-        console.log(response.data)
-        setQueriedStockDetails(response.data)
+        console.log('response: ', response.data)
+        let removedStock = pinnedStocks.filter(tick => tick !== query);
+        setPinnedStocks(removedStock);
+
+        if(isPinned === true){
+          setIsPinned(false)
+        }
       }
     }catch(err){
       const {response} = err;
       switch(response.status){
         case 400:
-          console.warn('invalid query')
+          console.log('invalid query or credentials')
           break;
         case 401:
-          console.warn('could not find this stock');
+          console.log('cannot unpin a stock that you are actively holding shares in')
+          alert('cannot unpin a stock that you are actively holding shares in')
           break;
         default:
-          console.log('internal server error');
+          console.warn('internal server error');
+          break;
       }
     }
   }
 
-// ------------------------------------------------------------------------ helper functions -------------------------------------------------------------------------------
-// handles the query submission event  
-const handleSubmit = (event) => {
-    event.preventDefault();
-    if (query.trim() !== "") {
-      queryForStock(query);
-      setQuery(""); // Clears input after submission
-    }
-  }
-
-  // handles the change in the form
-  const handleChange = (event) =>{
-    setQuery(event.target.value)
-  }
-
-    // Extract financials
-    const financials = queriedStockDetails?.financials || {};
-    const latestYear = Object.keys(financials).sort().pop();
-    const latestData = latestYear ? financials[latestYear] : null;
-    const additionalData = queriedStockDetails?.additional_data || {};
+  useEffect(() => {
+    setEmail(localStorage.getItem('email'));
+  }, []);  
 
   return (
     <div className="query-stock-card ibm-plex-sans-medium">
         <div className="group-query-stock">
-        <h3 style={{paddingBottom: '4px', textAlign: 'center'}} >Search a specific stock</h3>
+          <h3 style={{ paddingBottom: '4px', textAlign: 'center' }}>Search a specific stock</h3>
           <form onSubmit={handleSubmit}>
-            {/* <svg className="icon" aria-hidden="true" viewBox="0 0 24 24"><g><path d="M21.53 20.47l-3.66-3.66C19.195 15.24 20 13.214 20 11c0-4.97-4.03-9-9-9s-9 4.03-9 9 4.03 9 9 9c2.215 0 4.24-.804 5.808-2.13l3.66 3.66c.147.146.34.22.53.22s.385-.073.53-.22c.295-.293.295-.767.002-1.06zM3.5 11c0-4.135 3.365-7.5 7.5-7.5s7.5 3.365 7.5 7.5-3.365 7.5-7.5 7.5-7.5-3.365-7.5-7.5z"></path></g></svg> */}
             <input 
-                    placeholder="Search a Stock by its ticker" 
-                    type="search" 
-                    className="input ibm-plex-sans-medium" 
-                    onChange={handleChange} 
-                    value={query}
-                    ></input>
+              placeholder="Search a Stock by its ticker" 
+              type="search" 
+              className="input ibm-plex-sans-medium" 
+              style={{ marginBottom: '4px' }}
+              onChange={handleChange} 
+              value={query}
+            />
           </form>
         </div>
-        <div className='stock-info-column'>
-          {latestData ? (
-            <p className="stock-year">Year: {latestYear.substring(0, 4)}</p>
-            //fix this styling !!!! and show valid data 
-          ):(
-            <p>No data for this ticker</p>
-          )}
-        </div>
+
+        {/* Displays queried stock information */}
+        {stockTicker && (
+          <div className='stock-query-info' onClick={() => {
+            setSelectedStock(stockTicker);
+            setModalIsOpen(true);
+          }}>
+            <h2 className="holding-name ibm-plex-sans-heavy-ov"><u>{stockTicker}</u></h2>
+            <button
+              className="pin-stock"
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePin();
+              }}
+              style={{
+                borderColor: isPinned ? "#0BDA51" : "#ffcc00",
+                boxShadow: isPinned ? "0 0 3px 1px #0BDA51" : "none",
+              }}
+            >
+              📌
+            </button>
+
+            <button
+              className="unpin-stock"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRemovePin();
+              }}
+              style={{
+                borderColor: isPinned ? "rgb(218, 11, 11)" : "#ffcc00",
+                boxShadow: isPinned ? "0 0 3px 1px rgb(218, 11, 11)" : "none",
+              }}
+            >
+              ❌
+            </button>
+          </div>
+        )}
+
+        {/* Stock Analysis Modal */}
+        <Modal 
+          isOpen={modalIsOpen}
+          onRequestClose={() => {
+            setModalIsOpen(false);
+          }}
+          shouldCloseOnOverlayClick={true} // Allows clicking outside to close the modal
+          contentLabel={`${selectedStock} Analysis`}
+          style={{
+            overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)" },
+            content: {
+              color: "white",
+              background: "#1a1a1a",
+              borderRadius: "10px",
+              padding: "20px",
+              maxWidth: "80vw",
+              margin: "auto",
+              textAlign: "center",
+              overflowY: "auto",
+            },
+          }}
+        >
+          {/* Ensure StockOverview only renders if a stock is selected */}
+          {selectedStock && <StockOverview stock={selectedStock} />}
+
+          <button 
+            onClick={() => {
+              setModalIsOpen(false);
+            }}
+            className="close-btn ibm-plex-sans-medium">
+            Close
+          </button>
+        </Modal>
     </div>
   );
 };

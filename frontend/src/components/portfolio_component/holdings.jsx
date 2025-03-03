@@ -35,7 +35,7 @@ export function DisplayHoldings(){
             });
     
             if (response.status === 200) {
-                console.log(response.data.holdings);
+                // console.log(response.data.holdings);
                 setHoldings(response.data.holdings);
             }
         } catch (err) {
@@ -91,7 +91,7 @@ export function DisplayHoldings(){
                     <div className="holdings-grid">
                         {holdings.map((holding, index) => (
                             <div key={index} className="holding-item" onClick={()=>{chosenStock(holding.ticker)}} >
-                                <h2 className="holding-name ibm-plex-sans-heavy-ov"><u>({holding.ticker})</u></h2>
+                                <h2 className="holding-name ibm-plex-sans-heavy-ov"><u>{holding.ticker}</u></h2>
                                 <p><span className="holding-value ibm-plex-sans-medium">Shares: </span>{holding.num_shares}</p>
                                 <p><span className="holding-value ibm-plex-sans-medium">Average Price: </span>${holding.avg_price}</p>
                                 <p><span className="holding-value ibm-plex-sans-medium" style={{color: '#0BDA51'}} >Value of Holding: </span>${holding.value.toLocaleString()}</p>
