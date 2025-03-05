@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import './stockRec.css';
 import PropTypes, { object } from "prop-types";
 import Modal from 'react-modal';
@@ -7,11 +7,13 @@ import axios from "axios";
 // stock related component imports 
 import StockOverview from './stockOverview/overView'
 import StockRisk from "./riskComponent/riskAnal";
-import { LoadingWheel } from "./ui_component";
+import { StockContext } from "../StockContext";
+import SentimentAnalysis from "./sentimentAnal/SentAnal";
 
 Modal.setAppElement("#root");
 //update this to include the pinned stocks in query and fix the sleep timer bs, check fetchPinnedStocks
 export function Recommendations() {
+  const { pinnedStocks, setPinnedStocks } = useContext(StockContext); //access the context of the pinned stocks
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL;
   const [selectedStock, setSelectedStock] = useState("");
@@ -51,6 +53,9 @@ export function Recommendations() {
           case 400:
             console.log('could not fetch the ');
             break;
+          case 404:
+            console.log('no sentiment analysis found');
+            break;
           default:
             console.log('internal server error')
         }
@@ -71,7 +76,8 @@ export function Recommendations() {
       });
 
       if(response.status === 200){
-        // console.log('response: ',response.data)
+        console.log('response: ',response.data)
+        setPinnedStocks((prev) => [...(prev || []), response.data.data.ticker]);
       }
 
     }catch(err){
@@ -177,7 +183,7 @@ export function Recommendations() {
           </div>
 
           <div className="stock-content">
-            {/* <StockHistoricalChart stock={selectedStock}/> */}
+            <SentimentAnalysis stock={selectedStock} />
           </div>
 
           <div className="stock-content">

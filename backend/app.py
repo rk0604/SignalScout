@@ -15,7 +15,9 @@ import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm.attributes import flag_modified
 import time
-
+import requests
+from bs4 import BeautifulSoup
+from textblob import TextBlob
 
 app = Flask(__name__)
 app.config["DEBUG"] = True  # Enables hot reloading
@@ -291,11 +293,14 @@ def getRiskAnalysis():
         debt_to_equity = info.get('debtToEquity', "") # 61.175 - AMZN
         current_ratio = info.get('currentRatio', "")# 1.089 - AMZN
         quick_ratio = info.get('quickRatio', "") #0.827 - AMZN
+        latest_price = ticker.history(period="1d")['Close'].iloc[-1]
         
         #send to frontend
         risk_analysis_to_send['debtToEquity'] = debt_to_equity 
         risk_analysis_to_send['currentRatio'] = current_ratio 
         risk_analysis_to_send['quickRatio'] = quick_ratio 
+        risk_analysis_to_send['latest_price'] = latest_price
+        
     # print(risk_analysis_to_send)
     return jsonify(risk_analysis_to_send), 200
 
@@ -355,7 +360,12 @@ def updateHoldings():
                     flag_modified(existing_holding, "value")
 
                 db.session.commit()
-                return jsonify({"message": "Shares sold successfully"}), 200
+                return jsonify({
+                    "message": "Shares sold successfully",
+                    "data": {
+                        "ticker":existing_holding.ticker
+                    }
+                    }), 200
 
             # ============== BUY (shares > 0) ==============
             else:
@@ -401,7 +411,7 @@ def updateHoldings():
                 avg_price=float(price),
                 num_shares=shares,
                 value=value_of_shares,
-                pinned=False  # or True, depending on your logic
+                pinned=True  # or True, depending on your logic
             )
             db.session.add(new_holding)
             db.session.commit()
@@ -524,13 +534,55 @@ def remove_pin():
             return jsonify({"error": "Cannot unpin a stock that is actively held"}), 401
     else:
         return jsonify({"error": "Holding not found"}), 404
+    
+# ---------------------------------------------- Sentiment Analysis Routes --------------------------------------------------------------------------
 
-#use this route to get the sentiment analysis for a stock
-@app.route('/get-sentiment-analysis', methods=['GET'])
+def get_stock_news(ticker):
+    """
+    Scrapes Yahoo Finance news headlines and links using the stock ticker.
+    """
+    url = f"https://finance.yahoo.com/quote/{ticker}/news/"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    
+    response = requests.get(url, headers=headers)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    news_data = []
+
+    # Yahoo Finance wraps news articles inside <h3> tags with links
+    for item in soup.find_all("h3"):
+        headline = item.get_text()
+        link_parent = item.find_parent("a")  # Get the <a> tag
+        
+        if link_parent and "href" in link_parent.attrs:
+            link = link_parent["href"]  # Full URL
+            
+            news_data.append({"headline": headline, "link": link})
+
+    news_data = news_data[:5]
+    return news_data
+
+@app.route("/get-sentiment-analysis", methods=["GET"])
 def fetchSentiAnal():
-    request_data = request.get_json()
-    print("Received request in risk anal:", request_data) # AMZN
-    pass
+    """
+    API endpoint that takes a stock ticker and returns sentiment analysis along with Yahoo Finance news links.
+    """
+    stock = request.args.get("stock", "").upper()
+    
+    if not stock:
+        return jsonify({"error": "Please provide a stock ticker"}), 400
+    
+    print("Received request in fetchSentiAnal:", stock)  # Debugging
+    
+    news_data = get_stock_news(stock)
+    if not news_data:
+        return jsonify({"error": "No news found"}), 404
+    
+    return jsonify({
+        "ticker": stock,
+        "news": news_data
+    })
+
 
 # --------------------------------------------------------------------------- helper functions -------------------------------------------------------------------------
 def growthEstimate(stock):

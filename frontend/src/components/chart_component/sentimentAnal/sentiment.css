@@ -1,0 +1,163 @@
+
+.sentiment-info-container{
+    max-width: 80%;
+    background: linear-gradient(135deg, #121212, #1a1a1a);
+    color: #fff;
+    padding: 30px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
+    margin: 20px auto;
+    transition: transform 0.3s ease-in-out;
+}
+
+
+/* Main Sentiment Info Container */
+/* .sentiment-info {
+    padding: 22px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    transition: background 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+    height: fit-content;
+    max-width: 60vw;
+    margin: 0px auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+} */
+/* 
+.sentiment-info:hover {
+    background: rgba(255, 255, 255, 0.15);
+    box-shadow: none;
+} */
+
+/* Sentiment Title Styling */
+.sentiment-info h1 {
+    font-size: 24px;
+    font-weight: 900;
+    color: #ffcc00;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: 16px;
+}
+
+/* Input Field */
+.sentiment-info input {
+    width: 80%;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 16px;
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.sentiment-info input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Button Styling */
+.sentiment-info button {
+    background-color: #ffcc00;
+    color: black;
+    font-weight: 700;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-bottom: 12px;
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.sentiment-info button:hover {
+    background-color: #e6b800;
+    transform: translateY(-2px);
+}
+
+/* News Display Styling */
+.news-display {
+    width: 100%;
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Individual News Cards */
+.ticker-sentiment-data-display {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.ticker-sentiment-data-display:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-3px);
+}
+
+/* Ensure long URLs wrap inside the div */
+.ticker-sentiment-data-display a {
+    font-size: 14px;
+    color: #ffffff;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    margin-top: 4px;
+    word-wrap: break-word; /* Allow long words/URLs to wrap */
+    overflow-wrap: break-word; /* Ensure words break if necessary */
+    max-width: 100%; /* Prevent URL from overflowing */
+}
+
+
+/* Headline Text */
+.ticker-sentiment-data-display h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #ffcc00;
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+/* News Links */
+.ticker-sentiment-data-display a {
+    font-size: 14px;
+    color: #ffffff;
+    text-align: center;
+    text-decoration: none;
+    display: block;
+    margin-top: 4px;
+}
+
+.ticker-sentiment-data-display a:hover {
+    color: #ffcc00;
+    text-decoration: underline;
+}
+
+/* Placeholder for No Data */
+.news-display h3 {
+    font-weight: 900 !important;
+    color: #ffcc00 ;
+    font-size: 20px;
+    display: block;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1.20px;
+}
+
+.loading-text {
+    font-size: 22px;
+    color: #bbb;
+    font-style: italic;
+    margin-top: 30px;
+    z-index: 999;
+}
