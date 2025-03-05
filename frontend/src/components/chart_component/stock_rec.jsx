@@ -9,6 +9,7 @@ import StockOverview from './stockOverview/overView'
 import StockRisk from "./riskComponent/riskAnal";
 import { StockContext } from "../StockContext";
 import SentimentAnalysis from "./sentimentAnal/SentAnal";
+import StockChart from "./PriceChart/PriceChart";
 
 Modal.setAppElement("#root");
 //update this to include the pinned stocks in query and fix the sleep timer bs, check fetchPinnedStocks
@@ -175,6 +176,10 @@ export function Recommendations() {
           <h2 className="stock-year">Ticker: {selectedStock}</h2>
 
           <div className="stock-content">
+            <StockChart stock={selectedStock}/>
+          </div>
+
+          <div className="stock-content">
             <StockOverview stock={selectedStock}/>
           </div>
 
@@ -185,6 +190,7 @@ export function Recommendations() {
           <div className="stock-content">
             <SentimentAnalysis stock={selectedStock} />
           </div>
+
 
           <div className="stock-content">
           <form className="stock-holding-form" onChange={handleHoldingsFormUpdate} onSubmit={updateHoldings}>
