@@ -582,6 +582,28 @@ def fetchSentiAnal():
         "ticker": stock,
         "news": news_data
     })
+    
+# fetches the data for making the price chart
+@app.route('/get-chart-data', methods=['GET'])
+def fetchPriceChartData():
+    stock = request.args.get("stock", "").upper()  # Get stock ticker from query param
+
+    if not stock:
+        return jsonify({"error": "Stock ticker is required"}), 400
+
+    try:
+        stock_data = yf.Ticker(stock)
+        hist = stock_data.history(period="1y")  # Fetch 1 year of historical data
+
+        if hist.empty:
+            return jsonify({"error": "Invalid stock symbol or no data available"}), 400
+
+        # Format data for frontend
+        data = [{"date": str(index.date()), "price": row["Close"]} for index, row in hist.iterrows()]
+
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # --------------------------------------------------------------------------- helper functions -------------------------------------------------------------------------
