@@ -9,7 +9,7 @@ Modal.setAppElement("#root");
 
 // This component allows a user to search for a specific stock and get its analysis 
 const QueryStock = () => {
-  const { pinnedStocks, setPinnedStocks } = useContext(StockContext); //access the context
+  const { pinnedStocks, setPinnedStocks } = useContext(StockContext); //access the context of the pinned stocks
   const [isPinned, setIsPinned] = useState(false); // indicates if a queried stock is already pinned or not?
 
   const [query, setQuery] = useState(''); // Holds the ticker of the stock to be queried

@@ -10,6 +10,7 @@ const StockRisk = ({stock}) =>{
     const [debtToEquity, setDebtToEquity] = useState(null); // holds the debt to equity ratio
     const [currentRatio, setCurrentRatio] = useState(null); // holds the current rati
     const [quickRatio, setQuickRatio] = useState(null); // holds the quick ratio
+    const [latestPrice, setLatestPrice] = useState(null); //holds the latest price
 
 //-------------------------------------------------- routes ---------------------------------------------------------------------------------------
 
@@ -28,11 +29,12 @@ const StockRisk = ({stock}) =>{
 
             if(response && response.status === 200){
                 // console.log(response.data)
-                const {volatility, debtToEquity, currentRatio, quickRatio} = response.data;
+                const {volatility, debtToEquity, currentRatio, quickRatio, latest_price} = response.data;
                 setVolatility(volatility)
                 setDebtToEquity(debtToEquity)
                 setCurrentRatio(currentRatio)
                 setQuickRatio(quickRatio)
+                setLatestPrice(latest_price)
             }
 
         }catch(err){
@@ -62,7 +64,7 @@ const StockRisk = ({stock}) =>{
 
         return () => clearTimeout(timer); // reset the timer
     },[stock])
-
+// -------------------------------------------------------- Helper functions -------------------------------------------------------------------------------
     const getColor = (volatility) => {
         if (volatility < 0.15) return "#7CFC00";
         if (volatility >= 0.15 && volatility < 0.30) return "#0BDA51";
@@ -74,8 +76,14 @@ const StockRisk = ({stock}) =>{
     return(
         <>
         <div className='risk-info'>
+           {latestPrice? (
+            <p className='ibm-plex-sans-heavy-ov'><span>Latest Price: </span>{latestPrice ? ("$"+latestPrice.toFixed(2)): "No data"}</p>
+           ):(
+            <p className='loading-text'>Unable to fetch latest price for: {stock}</p>
+           )}
+            
            {volatility? (
-              <p className='ibm-plex-sans-heavy-ov'><span style={{ color: getColor(volatility) }} >Annual Volatility: </span>{volatility ? (volatility.toFixed(4)*100): "No data"}%</p>
+              <p className='ibm-plex-sans-heavy-ov'><span style={{ color: getColor(volatility) }} >Annual Volatility: </span>{volatility ? (volatility*100).toFixed(4): "No data"}%</p>
            ):(
               <p className='loading-text'>Fetching the volatility analysis for: {stock}</p>
             )}
