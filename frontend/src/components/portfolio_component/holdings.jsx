@@ -135,7 +135,7 @@ export function DisplayHoldings(){
                     </div>
                 ) : (
                     <div className="no-holdings">
-                        <h4>Buy something first, broke ass</h4>
+                        <h4>Buy something first</h4>
                     </div>
                 )}
             </div>
