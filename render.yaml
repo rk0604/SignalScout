@@ -37,6 +37,10 @@ services:
       # Lower values hit provider rate limits faster.
       - key: QUOTE_POLL_SECONDS
         value: "30"
+      # Optional: enables the AI agent's trade proposals. Without it the agent
+      # routes return 503 and the rest of the app is unaffected.
+      - key: ANTHROPIC_API_KEY
+        sync: false
       # Never enable Flask debug in production: the Werkzeug debugger allows RCE.
       - key: FLASK_DEBUG
         value: "0"

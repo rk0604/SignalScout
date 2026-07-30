@@ -22,6 +22,7 @@ body {
     'portfolio portfolio portfolio'
     'chart chart stats'
     'holdings trades stats'
+    'agent agent agent'
     'backtest backtest backtest';
   grid-template-columns: 2fr 1fr 1fr;
   grid-template-rows: auto;
@@ -35,6 +36,11 @@ body {
 /* 📈 Portfolio roll-up spans the full width above everything else */
 .portfolio-section {
   grid-area: portfolio;
+}
+
+/* 🤖 Agent panel — full width, above the backtest panel */
+.agent-section {
+  grid-area: agent;
 }
 
 /* 🧪 Backtest panel spans the full width below everything else */
@@ -116,6 +122,7 @@ body {
       'stats'
       'holdings'
       'trades'
+      'agent'
       'backtest';
     grid-template-columns: 1fr;
   }

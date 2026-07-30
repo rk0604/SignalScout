@@ -41,5 +41,9 @@ lxml==5.3.0
 # Sentiment (news headline polarity)
 textblob==0.18.0.post0
 
+# AI agent (proposal generation). Optional at runtime: without ANTHROPIC_API_KEY
+# the agent routes return 503 and the rest of the app is unaffected.
+anthropic==0.120.2
+
 # Charting utilities used by app.py imports
 matplotlib==3.10.0

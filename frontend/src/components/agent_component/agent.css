@@ -1,0 +1,154 @@
+/* Agent panel — same terminal language as the portfolio and backtest panels. */
+
+.agent-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 12px 14px 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.agent-title {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--amber);
+}
+
+.agent-run {
+  background: transparent;
+  border: 1px solid var(--amber);
+  border-radius: 3px;
+  color: var(--amber);
+  padding: 6px 14px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.agent-run:hover:not(:disabled) { background: var(--amber); color: #0A0A0A; }
+.agent-run:disabled { opacity: 0.5; cursor: default; }
+
+.agent-note { margin: 8px 0 4px; text-transform: none; letter-spacing: 0.02em; }
+.agent-error { color: var(--down); padding: 6px 0; text-transform: none; }
+.agent-empty { padding: 14px 0; text-align: center; }
+
+.agent-summary {
+  margin: 8px 0 12px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border-left: 2px solid var(--amber);
+  border-radius: 2px;
+}
+
+/* ---- a single proposal ---- */
+
+.proposal {
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--panel-2);
+}
+
+.proposal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 6px;
+}
+
+.proposal-action {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.proposal-ticker { color: var(--text); font-size: 15px; font-weight: 600; letter-spacing: 0.04em; }
+.proposal-shares { color: var(--muted); font-size: 12px; }
+
+.proposal-rationale {
+  margin: 4px 0 8px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.proposal-evidence { list-style: none; margin: 0 0 8px; padding: 0; }
+.proposal-evidence li { text-transform: none; letter-spacing: 0.02em; line-height: 1.6; }
+
+.proposal-risks {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.proposal-provenance {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.proposal-provenance span { cursor: help; }
+
+.proposal-actions { display: flex; gap: 8px; padding-top: 8px; }
+
+.proposal-approve,
+.proposal-reject {
+  border-radius: 3px;
+  padding: 5px 14px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.15s, color 0.15s;
+}
+
+.proposal-approve { border: 1px solid var(--up); color: var(--up); }
+.proposal-approve:hover:not(:disabled) { background: var(--up); color: #0A0A0A; }
+
+.proposal-reject { border: 1px solid var(--border); color: var(--muted); }
+.proposal-reject:hover:not(:disabled) { border-color: var(--down); color: var(--down); }
+
+.proposal-approve:disabled, .proposal-reject:disabled { opacity: 0.5; cursor: default; }
+
+/* ---- decision history ---- */
+
+.agent-history-label { margin: 12px 0 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+
+.history-scroll { overflow-x: auto; }
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.history-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-table .num { text-align: right; }

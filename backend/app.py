@@ -24,6 +24,7 @@ from functools import wraps
 from threading import Lock
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import backtesting
+import agent
 
 app = Flask(__name__)
 load_dotenv()
@@ -145,6 +146,36 @@ class BacktestRun(db.Model):
     equity_curve = db.Column(JSONB, nullable=True)  # [{date, equity, benchmark}]
     trades = db.Column(JSONB, nullable=True)
     snapshot_refs = db.Column(JSONB, nullable=True) # market_snapshot ids used
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, server_default=db.func.now()
+    )
+
+class AgentProposal(db.Model):
+    """
+    A trade the agent proposed, and what a human decided about it.
+
+    The agent has no write access to holdings: it can only create rows here.
+    Execution happens after a human approves, and every transition is also
+    mirrored into audit_log so the decision trail is immutable even though this
+    row's status changes.
+    """
+    __tablename__ = "agent_proposal"
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_email = db.Column(db.String(120), nullable=False, index=True)
+    ticker = db.Column(db.String(32), nullable=False)
+    action = db.Column(db.String(16), nullable=False)   # buy | sell | hold
+    shares = db.Column(db.Integer, nullable=False, default=0)
+    rationale = db.Column(db.Text, nullable=True)
+    confidence = db.Column(db.String(16), nullable=True)
+    evidence_used = db.Column(JSONB, nullable=True)
+    risks = db.Column(db.Text, nullable=True)
+    # Provenance: what the agent saw, and what validated the strategy.
+    snapshot_refs = db.Column(JSONB, nullable=True)
+    backtest_run_id = db.Column(UUID(as_uuid=True), nullable=True)
+    model = db.Column(db.String(64), nullable=True)
+    status = db.Column(db.String(16), nullable=False, default="pending")  # pending|approved|rejected|executed|failed
+    decided_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    decision_note = db.Column(db.Text, nullable=True)
     created_at = db.Column(
         db.DateTime(timezone=True), nullable=False, server_default=db.func.now()
     )
@@ -762,114 +793,33 @@ def updateHoldings():
         return jsonify({"error": "price cannot be negative"}), 400
 
     try:
-        existing_holding = Holdings.query.filter_by(email=email_in, ticker=ticker_in).first()
-        if existing_holding:
-            # ============== SELL (shares < 0) ============== 
-            if shares < 0:
-                abs_shares = abs(shares)
-                if existing_holding.num_shares < abs_shares:
-                    return jsonify({"error": "Not enough shares to sell"}), 400
-
-                existing_holding.num_shares -= abs_shares
-                sold_ticker = existing_holding.ticker
-                if existing_holding.num_shares == 0:
-                    # All sold, remove holding
-                    db.session.delete(existing_holding)
-                else:
-                    existing_holding.value = float(existing_holding.num_shares * existing_holding.avg_price)
-                    # Mark columns as modified for SQLAlchemy
-                    flag_modified(existing_holding, "num_shares")
-                    flag_modified(existing_holding, "value")
-
-                write_audit("sell", entity=ticker_in, payload={
-                    "shares_sold": abs_shares,
-                    "price": price,
-                    "shares_remaining": existing_holding.num_shares,
-                })
-                db.session.commit()
-                return jsonify({
-                    "message": "Shares sold successfully",
-                    "data": {
-                        "ticker": sold_ticker
-                    }
-                    }), 200
-
-            # ============== BUY (shares > 0) ==============
-            else:
-                original_shares = existing_holding.num_shares
-                existing_holding.num_shares += shares
-
-                # Weighted average price
-                new_avg_price = (
-                    (float(existing_holding.avg_price) * original_shares) +
-                    (shares * float(price))
-                ) / existing_holding.num_shares
-
-                existing_holding.avg_price = new_avg_price
-                existing_holding.value = float(existing_holding.num_shares * existing_holding.avg_price)
-
-                flag_modified(existing_holding, "num_shares")
-                flag_modified(existing_holding, "avg_price")
-                flag_modified(existing_holding, "value")
-
-                write_audit("buy", entity=ticker_in, payload={
-                    "shares_bought": shares,
-                    "price": price,
-                    "shares_held": existing_holding.num_shares,
-                    "new_avg_price": float(new_avg_price),
-                })
-                db.session.commit()
-
-                return jsonify({
-                    "message": "Holding updated successfully",
-                    "data": {
-                        "email": existing_holding.email,
-                        "ticker": existing_holding.ticker,
-                        "avg_price": existing_holding.avg_price,
-                        "num_shares": existing_holding.num_shares,
-                        "value": existing_holding.value,
-                        "pinned": existing_holding.pinned
-                    }
-                }), 200
-
-        else:
-            # ============== New Holding (with nonzero shares) ==============
-            if shares < 0:
-                return jsonify({"error": "Cannot sell a stock you do not own"}), 400
-
-            value_of_shares = float(price) * shares
-            new_holding = Holdings(
-                email=email_in,
-                ticker=ticker_in,
-                avg_price=float(price),
-                num_shares=shares,
-                value=value_of_shares,
-                pinned=True  # or True, depending on your logic
-            )
-            db.session.add(new_holding)
-            write_audit("buy_new", entity=ticker_in, payload={
-                "shares_bought": shares,
-                "price": price,
-                "value": value_of_shares,
-            })
-            db.session.commit()
-
-            return jsonify({
-                "message": "New holding added successfully",
-                "data": {
-                    "email": new_holding.email,
-                    "ticker": new_holding.ticker,
-                    "avg_price": new_holding.avg_price,
-                    "num_shares": new_holding.num_shares,
-                    "value": new_holding.value,
-                    "pinned": new_holding.pinned
-                }
-            }), 200
-
+        # Trade math lives in apply_holding_change so the manual route and the
+        # agent's execution path can never disagree about a cost basis.
+        result = apply_holding_change(email_in, ticker_in, shares, price)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         db.session.rollback()
         print(f"Database Error: {str(e)}")
         return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    try:
+        write_audit(result["action"], entity=ticker_in, payload=result)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database Error: {str(e)}")
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    messages = {
+        "sell": "Shares sold successfully",
+        "buy": "Holding updated successfully",
+        "buy_new": "New holding added successfully",
+    }
+    return jsonify({
+        "message": messages.get(result["action"], "Holding updated"),
+        "data": {"ticker": result["ticker"], **result},
+    }), 200
 
     
 #pin-holdings
@@ -949,6 +899,306 @@ def get_holdings():
     db.session.commit()  # persist any quote snapshots created above
     # print('holdings list: ', holdings_list)
     return jsonify({"holdings": holdings_list}), 200
+
+# ---------------------------------------------- AI agent (propose / approve / execute) ------------------------------------------------------------
+
+def apply_holding_change(email, ticker, shares, price):
+    """
+    Apply a buy (shares > 0) or sell (shares < 0) to a user's position.
+
+    Single implementation of the cost-basis math, shared by the manual trade
+    route and the agent's execution path — two copies would eventually disagree
+    about a user's average price. Mutates the session; the caller commits.
+    Raises ValueError on anything the caller should surface as a 400.
+    """
+    ticker = (ticker or "").upper()
+    if not ticker:
+        raise ValueError("ticker is required")
+    if not shares:
+        raise ValueError("num_shares must be non-zero")
+    if price is None:
+        raise ValueError(f"No price available for {ticker}")
+    price = float(price)
+    if price < 0:
+        raise ValueError("price cannot be negative")
+
+    existing = Holdings.query.filter_by(email=email, ticker=ticker).first()
+
+    # ---- sell ----
+    if shares < 0:
+        if not existing:
+            raise ValueError("Cannot sell a stock you do not own")
+        sold = abs(int(shares))
+        if existing.num_shares < sold:
+            raise ValueError("Not enough shares to sell")
+
+        existing.num_shares -= sold
+        remaining = existing.num_shares
+        if remaining == 0:
+            db.session.delete(existing)
+        else:
+            existing.value = float(remaining * existing.avg_price)
+            flag_modified(existing, "num_shares")
+            flag_modified(existing, "value")
+
+        return {"action": "sell", "ticker": ticker, "shares_sold": sold,
+                "price": price, "shares_remaining": remaining}
+
+    # ---- buy ----
+    shares = int(shares)
+    if not existing:
+        db.session.add(Holdings(
+            email=email, ticker=ticker, avg_price=price,
+            num_shares=shares, value=price * shares, pinned=True,
+        ))
+        return {"action": "buy_new", "ticker": ticker, "shares_bought": shares,
+                "price": price, "avg_price": price}
+
+    original = existing.num_shares
+    existing.num_shares += shares
+    # Weighted average cost basis across the old and new lots.
+    existing.avg_price = (
+        (float(existing.avg_price) * original) + (shares * price)
+    ) / existing.num_shares
+    existing.value = float(existing.num_shares * existing.avg_price)
+    flag_modified(existing, "num_shares")
+    flag_modified(existing, "avg_price")
+    flag_modified(existing, "value")
+
+    return {"action": "buy", "ticker": ticker, "shares_bought": shares,
+            "price": price, "shares_held": existing.num_shares,
+            "avg_price": float(existing.avg_price)}
+
+def gather_agent_evidence(email):
+    """
+    Collect what the agent is allowed to reason over, all from stored data.
+
+    Deliberately reads snapshots rather than calling providers live: the agent's
+    inputs must be the same ones recorded against its proposal, or the decision
+    is not reproducible.
+    """
+    snapshot_refs = []
+
+    holdings = Holdings.query.filter_by(email=email).all()
+    portfolio = []
+    tickers = []
+    for h in holdings:
+        if not h.num_shares:
+            continue
+        last, _ = get_quote_pair(h.ticker)
+        portfolio.append({
+            "ticker": h.ticker,
+            "shares": int(h.num_shares),
+            "avg_price": float(h.avg_price),
+            "last_quote": last,
+        })
+        tickers.append(h.ticker)
+
+    signals = {}
+    sentiment = {}
+    for ticker in tickers:
+        price_snap, price_id = get_snapshot("price", ticker=ticker, max_age_seconds=7 * 24 * 3600)
+        if isinstance(price_snap, dict):
+            signals[ticker] = price_snap.get("signals", [])[-3:]  # most recent crossovers
+            if price_id:
+                snapshot_refs.append(price_id)
+
+        sent_snap, sent_id = get_snapshot("sentiment", ticker=ticker, max_age_seconds=7 * 24 * 3600)
+        if isinstance(sent_snap, dict):
+            sentiment[ticker] = sent_snap.get("overall_sentiment")
+            if sent_id:
+                snapshot_refs.append(sent_id)
+
+    runs = (BacktestRun.query
+            .filter_by(actor_email=email)
+            .order_by(BacktestRun.created_at.desc())
+            .limit(5).all())
+    backtests = [
+        {
+            "id": str(r.id),
+            "strategy": r.strategy,
+            "universe": r.universe,
+            "window": f"{r.start_date} to {r.end_date}",
+            "metrics": {
+                k: r.metrics.get(k) for k in
+                ("total_return_pct", "sharpe", "max_drawdown_pct", "beat_benchmark")
+            } if r.metrics else None,
+        } for r in runs
+    ]
+
+    return {
+        "portfolio": portfolio,
+        "signals": signals,
+        "sentiment": sentiment,
+        "backtests": backtests,
+        "snapshot_refs": list(dict.fromkeys(snapshot_refs)),
+        "latest_backtest_id": str(runs[0].id) if runs else None,
+    }
+
+@app.route('/agent/propose', methods=['POST'])
+@require_auth
+def agent_propose():
+    """
+    Run the agent over stored evidence and record its proposals as pending.
+
+    Nothing is executed here. Each proposal is written with the snapshots it was
+    based on and the backtest that validated the strategy.
+    """
+    email = g.user_email
+    evidence = gather_agent_evidence(email)
+
+    if not evidence["portfolio"]:
+        return jsonify({
+            "error": "No holdings to analyse. Buy or pin a position first.",
+        }), 400
+
+    evidence_json = agent.build_evidence(
+        evidence["portfolio"], evidence["signals"],
+        evidence["sentiment"], evidence["backtests"],
+    )
+
+    try:
+        result = agent.propose(evidence_json)
+    except agent.AgentUnavailable as e:
+        return jsonify({"error": str(e), "reason": "agent_unavailable"}), 503
+
+    created = []
+    for p in result["proposals"]:
+        row = AgentProposal(
+            actor_email=email,
+            ticker=(p.get("ticker") or "").upper(),
+            action=p.get("action", "hold"),
+            shares=int(p.get("shares") or 0),
+            rationale=p.get("rationale"),
+            confidence=p.get("confidence"),
+            evidence_used=p.get("evidence_used"),
+            risks=p.get("risks"),
+            snapshot_refs=evidence["snapshot_refs"],
+            backtest_run_id=evidence["latest_backtest_id"],
+            model=result.get("model"),
+        )
+        db.session.add(row)
+        db.session.flush()
+
+        write_audit(
+            "agent_propose",
+            entity=row.ticker,
+            payload={
+                "proposal_id": str(row.id),
+                "action": row.action,
+                "shares": row.shares,
+                "confidence": row.confidence,
+                "rationale": row.rationale,
+                "model": row.model,
+                "backtest_run_id": evidence["latest_backtest_id"],
+            },
+            snapshot_ref=evidence["snapshot_refs"][0] if evidence["snapshot_refs"] else None,
+        )
+        created.append(row)
+
+    db.session.commit()
+
+    return jsonify({
+        "summary": result["summary"],
+        "model": result.get("model"),
+        "usage": result.get("usage"),
+        "evidence_snapshot_refs": evidence["snapshot_refs"],
+        "proposals": [serialize_proposal(r) for r in created],
+    }), 200
+
+def serialize_proposal(row):
+    return {
+        "id": str(row.id),
+        "ticker": row.ticker,
+        "action": row.action,
+        "shares": row.shares,
+        "rationale": row.rationale,
+        "confidence": row.confidence,
+        "evidence_used": row.evidence_used,
+        "risks": row.risks,
+        "snapshot_refs": row.snapshot_refs,
+        "backtest_run_id": str(row.backtest_run_id) if row.backtest_run_id else None,
+        "model": row.model,
+        "status": row.status,
+        "decision_note": row.decision_note,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
+
+@app.route('/agent/proposals', methods=['GET'])
+@require_auth
+def agent_list_proposals():
+    rows = (AgentProposal.query
+            .filter_by(actor_email=g.user_email)
+            .order_by(AgentProposal.created_at.desc())
+            .limit(50).all())
+    return jsonify({"proposals": [serialize_proposal(r) for r in rows]}), 200
+
+@app.route('/agent/decide', methods=['POST'])
+@require_auth
+def agent_decide():
+    """
+    Approve or reject a pending proposal.
+
+    Approval is what authorises execution — the agent cannot reach this path,
+    and a proposal that is not pending cannot be decided twice.
+    """
+    body = request.get_json(silent=True) or {}
+    proposal_id = body.get("proposal_id")
+    decision = (body.get("decision") or "").lower()
+    note = body.get("note")
+
+    if decision not in ("approve", "reject"):
+        return jsonify({"error": "decision must be 'approve' or 'reject'"}), 400
+
+    row = AgentProposal.query.filter_by(id=proposal_id, actor_email=g.user_email).first()
+    if not row:
+        return jsonify({"error": "Proposal not found"}), 404
+    if row.status != "pending":
+        return jsonify({"error": f"Proposal already {row.status}"}), 409
+
+    row.decided_at = datetime.now(timezone.utc)
+    row.decision_note = note
+
+    if decision == "reject":
+        row.status = "rejected"
+        write_audit("agent_reject", entity=row.ticker,
+                    payload={"proposal_id": str(row.id), "note": note})
+        db.session.commit()
+        return jsonify({"proposal": serialize_proposal(row)}), 200
+
+    # ---- approved ----
+    row.status = "approved"
+    write_audit("agent_approve", entity=row.ticker,
+                payload={"proposal_id": str(row.id), "note": note,
+                         "action": row.action, "shares": row.shares})
+
+    if row.action == "hold" or row.shares == 0:
+        # Nothing to execute; approval is the end of the loop.
+        row.status = "executed"
+        db.session.commit()
+        return jsonify({"proposal": serialize_proposal(row), "executed": False}), 200
+
+    try:
+        executed = apply_holding_change(
+            g.user_email, row.ticker,
+            shares=row.shares if row.action == "buy" else -row.shares,
+            price=get_quote_pair(row.ticker)[0],
+        )
+    except ValueError as e:
+        row.status = "failed"
+        row.decision_note = f"{note or ''} (execution failed: {e})".strip()
+        write_audit("agent_execute_failed", entity=row.ticker,
+                    payload={"proposal_id": str(row.id), "error": str(e)})
+        db.session.commit()
+        return jsonify({"error": str(e), "proposal": serialize_proposal(row)}), 400
+
+    row.status = "executed"
+    write_audit("agent_execute", entity=row.ticker,
+                payload={"proposal_id": str(row.id), **executed})
+    db.session.commit()
+
+    return jsonify({"proposal": serialize_proposal(row), "executed": True,
+                    "result": executed}), 200
 
 # ---------------------------------------------- Backtesting --------------------------------------------------------------------------------------
 
