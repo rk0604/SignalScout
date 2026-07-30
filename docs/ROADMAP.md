@@ -35,7 +35,7 @@ Two consequences reorder the backlog:
 The target look is a **information-dense financial terminal**: near-black canvas, amber
 brand accent, monospaced tabular numerics, thin-bordered panels, minimal chrome. This is
 a cross-cutting spec — every phase's UI (Phase 4 signals, Phase 5 dashboard, Phase 6
-realtime) must conform. Migrate the existing ad-hoc styles (`#ffcc00`, `#1a1a1a`,
+backtesting, Phase 7 realtime) must conform. Migrate the existing ad-hoc styles (`#ffcc00`, `#1a1a1a`,
 per-component CSS) onto these shared tokens.
 
 ### Design tokens (define once as CSS variables, e.g. `src/index.css`)
@@ -142,10 +142,12 @@ into the phases below rather than fixed standalone.
 | 3 | Provenance & caching layer | 1 | M | `TODO` |
 | 4 | Signals & sentiment (+ finish stubbed modal) | 1, 3 | M | `TODO` |
 | 5 | Portfolio analytics dashboard | 3 | M | `TODO` |
-| 6 | Realtime prices (WebSocket) | 2 | L | `TODO` |
-| 7 | AI agent layer (vision) | 1, 3, 5 | — | `TODO` |
+| 6 | Backtesting & strategy performance | 3, 4 | M | `TODO` |
+| 7 | Realtime prices (WebSocket) | 2 | L | `TODO` |
+| 8 | AI agent layer (vision) | 1, 3, 6 | — | `TODO` |
 
-**Recommended order:** 1 → 2 → 3 → 4 → 5 → 6, with 7 as the payoff.
+**Recommended order:** 1 → 2 → 3 → 4 → 5 → 6, with 8 as the payoff (7 is optional polish).
+Phase 6 gates Phase 8: an agent should only trade a strategy that has been backtested.
 Fastest resume impact: **1 → 2 → 5** (secure it, ship it, make it impressive).
 
 ---
@@ -184,7 +186,7 @@ produces an `audit_log` row queryable by `actor_email`.
 
 - **DB:** Neon (`DONE`).
 - **Backend → Render** (chosen over Railway because Render holds long-lived
-  WebSocket connections on the free tier, which Phase 6 needs). Add `gunicorn` + start
+  WebSocket connections on the free tier, which Phase 7 needs). Add `gunicorn` + start
   command. Move `DEBUG`, `SECRET_KEY`, `DATABASE_URL`, `FRONTEND_URL` to env.
   **Turn Flask debug OFF in prod** — currently hardcoded `True` (app.py:23, app.py:736);
   Werkzeug's debugger is RCE if it binds publicly.
@@ -226,7 +228,7 @@ Three low-risk, high-visibility wins that share the stock modal.
 - **MA20/50 crossover:** `calculate_moving_averages` / `generate_trading_signals`
   (app.py:60-70) already exist and are unused. Return MA series + crossover points from
   the chart endpoint; render two MA lines + buy/sell markers on `PriceChart.jsx`.
-  Log each signal generation (these are what the Phase 7 agent consumes).
+  Log each signal generation (these are what the Phase 8 agent consumes).
 
 **Done when:** the "signal" in SignalScout visibly exists; the modal is complete for both
 holdings and search.
@@ -276,7 +278,50 @@ dashboard renders all four tiles + donut + table from live data.
 
 ---
 
-## Phase 6 — Realtime prices (WebSocket)  `TODO`
+## Phase 6 — Backtesting & strategy performance  `TODO`
+
+**Goal:** measure how a strategy (or the agent's decisions) *would have performed* over
+history, before risking anything live. This is the empirical, auditable proof that a
+signal set is worth acting on — the "performance aspect" of the trading agent.
+
+**Core idea:** a strategy is a pure function `signals(history) -> {date: action}`. Replay
+it bar-by-bar over historical prices, simulate fills against a starting cash balance, and
+record the resulting equity curve. Every run is reproducible from stored inputs.
+
+**Backend**
+- New `backtest_run` table (append-only, audit-aligned): `id, strategy, params (JSONB),
+  universe, start_date, end_date, metrics (JSONB), equity_curve (JSONB), snapshot_refs,
+  created_at`. A run is immutable evidence, same discipline as `audit_log`.
+- Engine (`backend/backtesting/`), no look-ahead bias (only data up to bar *t* informs the
+  action at *t*):
+  1. Load historical bars from `market_snapshot` / yfinance (reuse Phase 3 data).
+  2. Generate signals per bar (start with the Phase 4 MA20/50 crossover; pluggable so the
+     Phase 8 agent's policy can be dropped in as just another strategy).
+  3. Simulate: apply actions, track cash + positions, mark-to-market each bar. Model
+     transaction cost + slippage (assume a fixed bps) so results aren't fantasy.
+- **Metrics:** total return, CAGR, annualized volatility, **Sharpe** (and Sortino),
+  **max drawdown**, win rate, trade count — **benchmarked against buy-and-hold SPY** over
+  the same window (a strategy that loses to buy-and-hold is a red flag, not a success).
+- Endpoint `POST /backtest` (auth from token) runs a strategy over a universe + window and
+  returns metrics + equity curve; persists a `backtest_run` row.
+
+**Frontend** (terminal design language)
+- A "Backtest" panel: pick strategy + universe + date range → run.
+- **Equity curve** line chart (strategy vs SPY benchmark) with drawdown shaded underneath.
+- A mono metrics table (return, CAGR, Sharpe, Sortino, max DD, win rate, # trades) with the
+  benchmark column beside each figure; color = strategy beat/lost vs benchmark.
+
+**Auditability payoff:** every `backtest_run` pins the exact `snapshot_refs` it used, so a
+result is reproducible and a later live agent decision can cite the backtest that justified
+its policy.
+
+**Done when:** running the MA-crossover strategy over a chosen universe/window returns
+Sharpe + max drawdown + an equity curve benchmarked against SPY, and the run is persisted
+as an immutable `backtest_run` row that reproduces on re-run.
+
+---
+
+## Phase 7 — Realtime prices (WebSocket)  `TODO`
 
 **Goal:** live-updating quotes. **Lowest priority** — display-only; the agent reasons over
 discrete snapshots, not ephemeral ticks.
@@ -291,15 +336,18 @@ discrete snapshots, not ephemeral ticks.
 
 ---
 
-## Phase 7 — AI agent layer (vision)  `TODO`
+## Phase 8 — AI agent layer (vision)  `TODO`
 
 Everything above is scaffolding for this. The agent gets **no direct DB write access**;
 it runs a **propose → approve → execute** loop:
 
-1. Reads signals (Phase 4) + snapshots (Phase 3).
+1. Reads signals (Phase 4) + snapshots (Phase 3), and its policy is one that has been
+   validated by a Phase 6 backtest (cite the `backtest_run` that justifies it).
 2. Writes a *proposed* action to `audit_log` with its reasoning + `snapshot_ref`.
 3. A human (or policy) approves → a second ledger row records execution.
-4. Any decision is replayable from ledger + snapshot.
+4. Any decision is replayable from ledger + snapshot, and its expected performance is
+   traceable to a persisted backtest.
 
 **Done when:** an agent can propose a trade, the proposal + approval + execution are three
-linked `audit_log` rows, and the decision can be replayed from stored evidence.
+linked `audit_log` rows, the decision is replayable from stored evidence, and the policy it
+used points to a `backtest_run`.
