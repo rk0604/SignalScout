@@ -2,6 +2,7 @@ import api, { isLoggedIn } from '../../api/client';
 import "./holdings.css";
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal'
+import { terminalModalStyles } from "../modalStyles";
 
 // Analysis panels shown when a holding is opened
 import StockChart from '../chart_component/PriceChart/PriceChart';
@@ -111,19 +112,7 @@ export function DisplayHoldings(){
                                 setModalIsOpen(false);
                                 }}
                               contentLabel={`${selectedHolding} Analysis`}
-                              style={{
-                                overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)" },
-                                content: {
-                                color: "white",
-                                background: "#1a1a1a",
-                                borderRadius: "10px",
-                                padding: "20px",
-                                maxWidth: "80vw",
-                                margin: "auto",
-                                textAlign: "center",
-                                overflowY: "auto",
-                                },
-                            }}
+                              style={terminalModalStyles}
                             >
                                <h2 className="stock-year">Ticker: {selectedHolding}</h2>
 

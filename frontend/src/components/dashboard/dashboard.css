@@ -6,9 +6,9 @@
 }
 
 body {
-  background: linear-gradient(135deg, #121212, #1a1a1a);
-  color: #ffffff;
-  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
 }
 
 /* 📌 Dashboard Grid Layout
@@ -48,69 +48,39 @@ body {
   grid-area: backtest;
 }
 
-/* 📊 Chart Section */
+/* 📊 Section wrappers — flat panels, hairline borders, no shadows or gradients.
+   (The duplicate .stats-section block that used to sit here has been removed.) */
 .chart-section {
   grid-area: chart;
-  border-radius: 14px;
-  padding: 2px;
-  height: 300px;
+  min-height: 300px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
-  transition: transform 0.3s ease-in-out;
+  align-items: stretch;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  overflow: hidden;
 }
 
-
-/* 📊 Stats Section */
 .stats-section {
   grid-area: stats;
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 20px;
-  border-radius: 14px;
-  text-align: center;
-  font-weight: bold;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  gap: 12px;
+  background: var(--panel);
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
 }
 
 /* 💰 Holdings & Trades */
-.holdings-section, .trade-history-section {
-  border-radius: 14px;
-  padding: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  height: 220px;
-  max-height: 220px;
-  box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.2);
-  transition: transform 0.3s ease-in-out;
-}
-
-/* 📊 Stats Section */
-.stats-section {
-  grid-area: stats;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 20px;
-  border-radius: 14px;
-  text-align: center;
-  font-weight: bold;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-
-.holdings-section {
-  grid-area: holdings;
-}
-
+.holdings-section,
 .trade-history-section {
-  grid-area: trades;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  min-height: 240px;
+  max-height: 340px;
+  overflow: hidden;
 }
 
 /* 📱 Responsive Layout */
@@ -162,17 +132,20 @@ body {
 
 /* --------------------------------------🎛️ General Component Stylings ------------------------------------------------------------------------------------------------*/
 .close-btn {
-  padding: 10px;
-  border: 2px solid #ffcc00; /* Highlighted Yellow */
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
-  color: antiquewhite;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .close-btn:hover {
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  color: var(--amber);
+  border-color: var(--amber);
 }
 

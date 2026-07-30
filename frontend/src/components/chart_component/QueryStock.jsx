@@ -3,6 +3,7 @@ import './query.css';
 import Modal from 'react-modal';
 import StockOverview from './stockOverview/overView';
 import { StockContext } from '../StockContext';
+import { terminalModalStyles } from "../modalStyles";
 import api from '../../api/client';
 
 Modal.setAppElement("#root");
@@ -186,19 +187,7 @@ const QueryStock = () => {
           }}
           shouldCloseOnOverlayClick={true} // Allows clicking outside to close the modal
           contentLabel={`${selectedStock} Analysis`}
-          style={{
-            overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)" },
-            content: {
-              color: "white",
-              background: "#1a1a1a",
-              borderRadius: "10px",
-              padding: "20px",
-              maxWidth: "80vw",
-              margin: "auto",
-              textAlign: "center",
-              overflowY: "auto",
-            },
-          }}
+          style={terminalModalStyles}
         >
           {/* Ensure StockOverview only renders if a stock is selected */}
           {selectedStock && <StockOverview stock={selectedStock} />}

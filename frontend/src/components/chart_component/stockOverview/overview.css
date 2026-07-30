@@ -1,14 +1,12 @@
 /* Stock Overview Container */
 .stock-overview-container {
     max-width: 80%;
-    background: linear-gradient(135deg, #121212, #1a1a1a);
-    color: #fff;
+    background: var(--panel);
+    color: var(--text);
     padding: 30px;
-    border-radius: 16px;
+    border-radius: 3px;
     text-align: center;
-    box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.3);
     margin: 20px auto;
-    transition: transform 0.3s ease-in-out;
 }
 
 /* Stock Title (Ticker Symbol) */
@@ -16,7 +14,7 @@
     font-size: 32px;
     font-weight: bold;
     text-transform: uppercase;
-    color: #ffcc00;
+    color: var(--amber);
     letter-spacing: 1.8px;
     margin-bottom: 15px;
     text-shadow: none;
@@ -26,8 +24,8 @@
 .stock-year {
     font-size: 24px;
     font-weight: 700;
-    color: #ffcc00;
-    border-bottom: 4px solid #ffcc00;
+    color: var(--amber);
+    border-bottom: 4px solid var(--amber);
     display: inline-block;
     padding-bottom: 8px;
     margin-bottom: 30px;
@@ -47,11 +45,10 @@
 /* Individual Data Boxes */
 .stock-info-column {
     padding: 22px;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    background: var(--border);
     border: 1px solid rgba(255, 255, 255, 0.25);
     transition: background 0.3s ease, transform 0.2s ease;
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
     min-height: 220px;
     display: flex;
     flex-direction: column;
@@ -64,7 +61,6 @@
 .stock-info-column:hover {
     background: rgba(255, 255, 255, 0.15);
     transform: translateY(-4px);
-    box-shadow: none;
 }
 
 /* Data Points Styling */
@@ -76,16 +72,16 @@
     line-height: 1.8;
     font-weight: 600;
     text-align: center;
-    /* background: rgba(255, 255, 255, 0.1); */
-    /* border-left: 5px solid #ffcc00; */
+    /* background: var(--border); */
+    /* border-left: 5px solid var(--amber); */
     padding-left: 16px;
-    color: #FFFFFF !important;
+    color: var(--text) !important;
 }
 
 /* Highlighted Labels */
 .stock-info p span {
     font-weight: 900 !important;
-    color: #ffcc00 !important;
+    color: var(--amber) !important;
     font-size: 24px;
     display: block;
     margin-bottom: 8px;

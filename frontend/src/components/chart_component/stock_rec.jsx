@@ -8,6 +8,7 @@ import api from "../../api/client";
 import StockOverview from './stockOverview/overView'
 import StockRisk from "./riskComponent/riskAnal";
 import { StockContext } from "../StockContext";
+import { terminalModalStyles } from "../modalStyles";
 import SentimentAnalysis from "./sentimentAnal/SentAnal";
 import StockChart from "./PriceChart/PriceChart";
 
@@ -156,19 +157,7 @@ export function Recommendations() {
             setModalIsOpen(false)
           }}
           contentLabel={`${selectedStock} Analysis`}
-          style={{
-            overlay: { backgroundColor: "rgba(0, 0, 0, 0.75)" },
-            content: {
-              color: "white",
-              background: "#1a1a1a",
-              borderRadius: "10px",
-              padding: "20px",
-              maxWidth: "80vw",
-              margin: "auto",
-              textAlign: "center",
-              overflowY: "auto",
-            },
-          }}
+          style={terminalModalStyles}
         >
           <h2 className="stock-year">Ticker: {selectedStock}</h2>
 

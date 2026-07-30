@@ -1,18 +1,20 @@
 
   .refreshButton{
-    padding: 10px;
-    border: 2px solid #ffcc00; /* Highlighted Yellow */
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.1);
-    transition: all 0.3s ease;
-    color: antiquewhite;
-    margin-top: 2px;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: color 0.15s ease, border-color 0.15s ease;
   }
 
   .refreshButton:hover{
     cursor: pointer;
-    background: rgba(255, 255, 255, 0.2);
-    transform: scale(1.05);
+    color: var(--amber);
+    border-color: var(--amber);
   }
 /**/
   .holdings-container {
@@ -27,12 +29,12 @@
 
 /* Scrollbar for the holdings-card */
 .holdings-card {
-  border-radius: 10px;
+  border-radius: 3px;
   /* padding: 10px; */
   width: 100%;
   max-width: 800px;
   text-align: center;
-  color: #fff;
+  color: var(--text);
   height: fit-content;
   max-height: 170px !important; /* Set a max height to ensure scrollbar appears only when needed */
   overflow-y: auto; /* Enables scrolling when content overflows */
@@ -89,15 +91,15 @@
   line-height: 1.8;
   font-weight: 600;
   text-align: left;
-  /* background: rgba(255, 255, 255, 0.1); */
-  /* border-left: 5px solid #ffcc00; */
+  /* background: var(--border); */
+  /* border-left: 5px solid var(--amber); */
   padding-left: 16px;
-  color: #FFFFFF !important;
+  color: var(--text) !important;
 }
 
 .holding-item span{
   font-weight: 900 !important;
-  color: #ffcc00 !important;
+  color: var(--amber) !important;
   font-size: 16px;
   /* display: block; */
   margin-bottom: 1px;
@@ -119,14 +121,14 @@
 
 .holding-value {
     font-weight: bold;
-    color: #0BDA51 !important; 
+    color: var(--up) !important; 
 }
 
 .no-holdings {
     margin-top: 15px;
     font-size: 16px;
     font-weight: bold;
-    color: #FA5F55;
+    color: var(--down);
 }
 
 

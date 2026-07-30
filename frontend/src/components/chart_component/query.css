@@ -29,9 +29,9 @@
 
 .pin-stock, .unpin-stock {
     padding: 10px;
-    border: 2px solid #ffcc00;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid var(--amber);
+    border-radius: 3px;
+    background: var(--border);
     transition: all 0.3s ease;
     color: antiquewhite;
     width: fit-content;
@@ -42,8 +42,7 @@
 
 .pin-stock:hover ,.unpin-stock:hover{
     cursor: pointer;
-    /* background: rgba(255, 255, 255, 0.2); */
-    transform: scale(1.05);
+    /* background: var(--border); */
 }
 
 /* .stock-query-info:hover{
@@ -57,8 +56,8 @@
     line-height: 1.8;
     font-weight: 600;
     text-align: left;
-    /* background: rgba(255, 255, 255, 0.1); */
-    /* border-left: 5px solid #ffcc00; */
+    /* background: var(--border); */
+    /* border-left: 5px solid var(--amber); */
     padding-left: 16px;
-    color: #FFFFFF !important;
+    color: var(--text) !important;
 }
