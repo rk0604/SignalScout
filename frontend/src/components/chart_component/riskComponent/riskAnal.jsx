@@ -108,8 +108,8 @@ const StockRisk = ({stock}) =>{
     )
 }
 
-StockRisk.protoTypes = {
-    stock: PropTypes.string.isRequired
+StockRisk.propTypes = {
+    stock: PropTypes.string
 }
 
 

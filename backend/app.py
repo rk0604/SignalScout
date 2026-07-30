@@ -19,6 +19,7 @@ import requests
 from bs4 import BeautifulSoup
 from textblob import TextBlob
 import jwt
+import re
 from functools import wraps
 
 app = Flask(__name__)
@@ -193,6 +194,7 @@ SNAPSHOT_TTL_SECONDS = {
     "financials": 24 * 3600,
     "risk": 6 * 3600,
     "price": 3600,
+    "quote": 900,
     "sentiment": 3600,
 }
 
@@ -251,6 +253,34 @@ def put_snapshot(kind, payload, ticker=None):
     db.session.flush()  # populate row.id without ending the transaction
     return str(row.id)
 
+def get_last_quote(ticker):
+    """
+    Latest close for a ticker, preferring stored data over a network call.
+
+    Tried in order: a fresh quote snapshot, the tail of a fresh price snapshot,
+    then yfinance. Returns None if every source fails, so a rate-limited
+    provider degrades one number instead of breaking the whole portfolio view.
+    """
+    cached, _ = get_snapshot("quote", ticker=ticker)
+    if isinstance(cached, dict) and cached.get("price") is not None:
+        return cached["price"]
+
+    # The chart endpoint may already have stored a year of closes.
+    price_snap, _ = get_snapshot("price", ticker=ticker)
+    if isinstance(price_snap, dict) and price_snap.get("series"):
+        return price_snap["series"][-1].get("price")
+
+    try:
+        data = yf.Ticker(ticker).history(period="1d")
+        if data.empty:
+            return None
+        price = float(data["Close"].iloc[-1])
+        put_snapshot("quote", {"price": price}, ticker=ticker)
+        return price
+    except Exception as e:
+        print(f"Quote lookup failed for {ticker}: {e}")
+        return None
+
 def write_audit(action, entity=None, payload=None, actor_email=None, snapshot_ref=None):
     """
     Append one row to the audit ledger.
@@ -278,10 +308,26 @@ def calculate_moving_averages(df):
     return df
 
 def generate_trading_signals(df):
-    """Generates buy/sell signals based on MA crossovers"""
-    df["Signal"] = np.where(df["MA_20"] > df["MA_50"], "Buy", "Sell")
-    df["Crossover"] = df["Signal"].ne(df["Signal"].shift())  # Detect changes
-    return df[df["Crossover"]]
+    """
+    Generates buy/sell signals based on MA20/MA50 crossovers.
+
+    Only rows where both averages exist are considered. Without that filter the
+    first 49 days compare MA_20 against NaN, which evaluates False and labels
+    them "Sell", producing a fake crossover the moment MA_50 becomes valid.
+    The first valid row is also excluded: it has no prior state to cross from.
+    """
+    both_valid = df["MA_20"].notna() & df["MA_50"].notna()
+    valid = df[both_valid].copy()
+    if valid.empty:
+        return valid.assign(Signal=[], Crossover=[])
+
+    valid["Signal"] = np.where(valid["MA_20"] > valid["MA_50"], "Buy", "Sell")
+    # A crossover is a change from the previous valid row; the first row's
+    # shift() is NaN, so drop it explicitly rather than reporting a crossover.
+    valid["Crossover"] = valid["Signal"].ne(valid["Signal"].shift())
+    valid.iloc[0, valid.columns.get_loc("Crossover")] = False
+
+    return valid[valid["Crossover"]]
 
 
 # ----------------------------------------------- auth routes -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -818,24 +864,25 @@ def get_holdings():
         "pinned": bool(h.pinned),
     } for h in holdings if h.num_shares != 0] # check for whether a stock is pinned or simply a holding 
 
-    # Fetch latest stock price for each holding
-    for i, hold in enumerate(holdings_list):
-        if hold['pinned'] == False:
-            continue # dont return this stock as user has pinned it BUT not bought it
-        
-        # print('hold object: ',hold) #{'ticker': 'ASTS', 'num_shares': 8, 'avg_price': 25.0, 'value': 200.0, 'pinned': True}
-        stock = yf.Ticker(hold['ticker'])  # Fetch stock data
-        
-        data = stock.history(period="1d")  # Get last trading day's data
-        if not data.empty:
-            last_quote = data["Close"].iloc[-1]  # Get the latest closing price
-            holdings_list[i]["last_quote"] = float(last_quote)  # Append to the correct stock
-            
-            price_diff = (last_quote - holdings_list[i]['avg_price'])
-            total_return = ((price_diff/holdings_list[i]['avg_price'])*100)
-            holdings_list[i]['total_return'] = total_return
-        else:
-            holdings_list[i]["last_quote"] = None  # Handle missing data
+    # Attach the latest quote and return for each holding.
+    # Every holding gets last_quote and total_return keys, even when the data is
+    # unavailable: previously the loop skipped some rows entirely and the
+    # frontend then called .toFixed() on an undefined total_return.
+    for hold in holdings_list:
+        hold["last_quote"] = None
+        hold["total_return"] = None
+
+        last_quote = get_last_quote(hold["ticker"])
+        if last_quote is None:
+            continue
+
+        hold["last_quote"] = float(last_quote)
+        # avg_price is 0 for a pinned-but-unowned ticker; guard the division.
+        if hold["avg_price"]:
+            price_diff = last_quote - hold["avg_price"]
+            hold["total_return"] = (price_diff / hold["avg_price"]) * 100
+
+    db.session.commit()  # persist any quote snapshots created above
     # print('holdings list: ', holdings_list)
     return jsonify({"holdings": holdings_list}), 200
 
@@ -868,30 +915,156 @@ def remove_pin():
     
 # ---------------------------------------------- Sentiment Analysis Routes --------------------------------------------------------------------------
 
-def get_stock_news(ticker):
+MAX_HEADLINES = 5
+
+def _extract_news_item(item):
     """
-    Scrapes Yahoo Finance news headlines and links using the stock ticker.
+    Pull (headline, link) out of one yfinance news entry.
+
+    The payload shape has changed across yfinance versions: older releases
+    return flat {title, link} dicts, newer ones nest under "content" with
+    canonicalUrl/clickThroughUrl. Handle both rather than pinning a version.
     """
-    url = f"https://finance.yahoo.com/quote/{ticker}/news/"
+    content = item.get("content") or item
+    headline = content.get("title") or item.get("title")
+    link = (
+        item.get("link")
+        or (content.get("canonicalUrl") or {}).get("url")
+        or (content.get("clickThroughUrl") or {}).get("url")
+    )
+    if not headline:
+        return None
+    return {"headline": headline.strip(), "link": link or ""}
+
+def get_news_via_yfinance(ticker):
+    """Preferred source: yfinance's news API, which is maintained upstream."""
+    items = yf.Ticker(ticker).news or []
+    out = []
+    for item in items:
+        parsed = _extract_news_item(item)
+        if parsed:
+            out.append(parsed)
+    return out[:MAX_HEADLINES]
+
+def get_news_via_scrape(ticker):
+    """
+    Fallback: scrape the quote page.
+
+    Kept only as a backstop. Yahoo's markup changes without notice, and the
+    old /news/ path now 404s, so this is best-effort by nature.
+    """
+    url = f"https://finance.yahoo.com/quote/{ticker}/"
     headers = {"User-Agent": "Mozilla/5.0"}
-    
-    response = requests.get(url, headers=headers)
+
+    response = requests.get(url, headers=headers, timeout=15)
+    if response.status_code != 200:
+        return []
+
     soup = BeautifulSoup(response.text, "html.parser")
 
     news_data = []
+    seen = set()
+    # Headlines have moved between h3 and h2 over time; accept either, and take
+    # the enclosing anchor as the link.
+    for item in soup.find_all(["h3", "h2"]):
+        headline = item.get_text(strip=True)
+        if not headline or headline in seen:
+            continue
 
-    # Yahoo Finance wraps news articles inside <h3> tags with links
-    for item in soup.find_all("h3"):
-        headline = item.get_text()
-        link_parent = item.find_parent("a")  # Get the <a> tag
-        
-        if link_parent and "href" in link_parent.attrs:
-            link = link_parent["href"]  # Full URL
-            
-            news_data.append({"headline": headline, "link": link})
+        link_parent = item.find_parent("a")
+        link = link_parent["href"] if (link_parent and link_parent.has_attr("href")) else ""
+        if link.startswith("/"):
+            link = f"https://finance.yahoo.com{link}"
 
-    news_data = news_data[:5]
-    return news_data
+        # The quote page is full of headings that are not news: "Trading
+        # disclosure", "U.S. markets closed", bare percentages. A real headline
+        # links to an article and reads like a sentence, so require both.
+        if not link or len(headline) < 25 or not re.search(r"[A-Za-z]{3,}\s+\w", headline):
+            continue
+
+        seen.add(headline)
+        news_data.append({"headline": headline, "link": link})
+
+    return news_data[:MAX_HEADLINES]
+
+def get_stock_news(ticker):
+    """
+    Latest headlines for a ticker, preferring the yfinance API over scraping.
+    """
+    try:
+        items = get_news_via_yfinance(ticker)
+        if items:
+            return items
+        print(f"yfinance returned no news for {ticker}; falling back to scrape.")
+    except Exception as e:
+        # Rate limits and upstream changes both land here.
+        print(f"yfinance news failed for {ticker}: {e}; falling back to scrape.")
+
+    return get_news_via_scrape(ticker)
+
+# TextBlob's lexicon is general-purpose and scores most market vocabulary as
+# neutral ("record earnings beat" -> 0.0), which would make the score useless
+# here. This overlay nudges polarity using terms that actually carry direction
+# in financial headlines. Values are deliberately modest so TextBlob still
+# drives the base reading.
+FINANCE_SENTIMENT_TERMS = {
+    # bullish
+    "soar": 0.5, "soars": 0.5, "surge": 0.45, "surges": 0.45, "rally": 0.4,
+    "rallies": 0.4, "jump": 0.35, "jumps": 0.35, "climb": 0.3, "climbs": 0.3,
+    "beat": 0.4, "beats": 0.4, "tops": 0.35, "upgrade": 0.45, "upgraded": 0.45,
+    "outperform": 0.4, "record": 0.3, "profit": 0.3, "growth": 0.3,
+    "bullish": 0.5, "strong": 0.3, "gain": 0.3, "gains": 0.3, "raises": 0.3,
+    # bearish
+    "plunge": -0.5, "plunges": -0.5, "slump": -0.45, "slumps": -0.45,
+    "tumble": -0.45, "tumbles": -0.45, "sink": -0.4, "sinks": -0.4,
+    "fall": -0.3, "falls": -0.3, "drop": -0.3, "drops": -0.3, "slide": -0.3,
+    "miss": -0.4, "misses": -0.4, "downgrade": -0.45, "downgraded": -0.45,
+    "underperform": -0.4, "loss": -0.35, "losses": -0.35, "recall": -0.35,
+    "bearish": -0.5, "weak": -0.35, "lawsuit": -0.35, "probe": -0.3,
+    "investigation": -0.3, "cuts": -0.3, "warns": -0.35, "halts": -0.3,
+    "crash": -0.5, "crashes": -0.5, "plummet": -0.55, "plummets": -0.55,
+    "selloff": -0.4, "layoffs": -0.4, "bankruptcy": -0.6, "fraud": -0.55,
+    "delisted": -0.5, "halted": -0.35, "shortfall": -0.35,
+    # more bullish
+    "highs": 0.35, "breakout": 0.4, "approval": 0.35, "approved": 0.35,
+    "wins": 0.35, "boosts": 0.35, "jumped": 0.35, "doubled": 0.3,
+}
+
+def finance_lexicon_adjustment(text):
+    """Sum the overlay weights for finance terms present in the text."""
+    words = re.findall(r"[a-z']+", text.lower())
+    return sum(FINANCE_SENTIMENT_TERMS.get(w, 0.0) for w in words)
+
+def score_headline(headline):
+    """
+    Score one headline in [-1, 1].
+
+    TextBlob supplies the base polarity; the finance overlay corrects for market
+    vocabulary it does not know. Both parts are returned so the score can be
+    audited rather than taken on faith.
+    """
+    blob = TextBlob(headline)
+    base = float(blob.sentiment.polarity)
+    adjustment = finance_lexicon_adjustment(headline)
+    # tanh keeps the result inside [-1, 1] without hard clipping. A plain clamp
+    # pinned every headline with two or three loaded words to exactly +/-1 and
+    # threw away the difference between "rallies" and "soars on record beat".
+    combined = float(np.tanh(base + adjustment))
+    return {
+        "polarity": round(combined, 4),
+        "textblob_polarity": round(base, 4),
+        "lexicon_adjustment": round(adjustment, 4),
+        "subjectivity": round(float(blob.sentiment.subjectivity), 4),
+        "label": sentiment_label(combined),
+    }
+
+def sentiment_label(polarity):
+    """Bucket a polarity score into a human-readable label."""
+    if polarity >= 0.15:
+        return "positive"
+    if polarity <= -0.15:
+        return "negative"
+    return "neutral"
 
 @app.route("/get-sentiment-analysis", methods=["GET"])
 @require_auth
@@ -900,21 +1073,55 @@ def fetchSentiAnal():
     API endpoint that takes a stock ticker and returns sentiment analysis along with Yahoo Finance news links.
     """
     stock = request.args.get("stock", "").upper()
-    
+
     if not stock:
         return jsonify({"error": "Please provide a stock ticker"}), 400
-    
+
     print("Received request in fetchSentiAnal:", stock)  # Debugging
-    
-    news_data = get_stock_news(stock)
+
+    # Headlines plus their scores are snapshotted: the Yahoo page changes
+    # constantly, so a score is only reproducible if the text it came from is
+    # stored alongside it.
+    cached, _ = get_snapshot("sentiment", ticker=stock)
+    if cached is not None:
+        return jsonify(cached), 200
+
+    try:
+        news_data = get_stock_news(stock)
+    except Exception as e:
+        print(f"News scrape failed for {stock}: {e}")
+        stale, _ = get_snapshot("sentiment", ticker=stock, max_age_seconds=30 * 24 * 3600)
+        if stale is not None:
+            return jsonify(stale), 200
+        return jsonify({"error": "Could not retrieve news at this moment"}), 503
+
     if not news_data:
         return jsonify({"error": "No news found"}), 404
-    
-    return jsonify({
+
+    for item in news_data:
+        item["sentiment"] = score_headline(item["headline"])
+
+    scores = [item["sentiment"]["polarity"] for item in news_data]
+    overall = sum(scores) / len(scores)
+
+    result = {
         "ticker": stock,
-        "news": news_data
-    })
-    
+        "news": news_data,
+        "overall_sentiment": {
+            "polarity": round(overall, 4),
+            "label": sentiment_label(overall),
+            "headline_count": len(news_data),
+            "positive": sum(1 for s in scores if s >= 0.15),
+            "neutral": sum(1 for s in scores if -0.15 < s < 0.15),
+            "negative": sum(1 for s in scores if s <= -0.15),
+        },
+    }
+
+    snapshot_id = put_snapshot("sentiment", result, ticker=stock)
+    db.session.commit()
+    result["snapshot_ref"] = snapshot_id
+    return jsonify(result), 200
+
 # fetches the data for making the price chart
 @app.route('/get-chart-data', methods=['GET'])
 @require_auth
@@ -925,8 +1132,10 @@ def fetchPriceChartData():
         return jsonify({"error": "Stock ticker is required"}), 400
 
     # Serve from the snapshot store when fresh (see SNAPSHOT_TTL_SECONDS).
+    # Older snapshots stored a bare list; only the current {series, signals}
+    # shape is reusable, so a legacy payload is treated as a miss.
     cached, _ = get_snapshot("price", ticker=stock)
-    if cached is not None:
+    if isinstance(cached, dict) and "series" in cached:
         return jsonify(cached), 200
 
     try:
@@ -936,17 +1145,61 @@ def fetchPriceChartData():
         if hist.empty:
             return jsonify({"error": "Invalid stock symbol or no data available"}), 400
 
-        # Format data for frontend
-        data = [{"date": str(index.date()), "price": row["Close"]} for index, row in hist.iterrows()]
+        # Attach the 20/50-day moving averages, then find their crossovers.
+        hist = calculate_moving_averages(hist)
+        crossovers = generate_trading_signals(hist)
 
-        put_snapshot("price", data, ticker=stock)
+        # Format data for frontend. MA values are None until enough history
+        # accumulates, which recharts renders as a gap rather than a zero.
+        series = [
+            {
+                "date": str(index.date()),
+                "price": round(float(row["Close"]), 4),
+                "ma20": None if pd.isna(row["MA_20"]) else round(float(row["MA_20"]), 4),
+                "ma50": None if pd.isna(row["MA_50"]) else round(float(row["MA_50"]), 4),
+            }
+            for index, row in hist.iterrows()
+        ]
+
+        signals = [
+            {
+                "date": str(index.date()),
+                "price": round(float(row["Close"]), 4),
+                # "Buy" == golden cross (MA20 crossing above MA50), "Sell" == death cross.
+                "signal": row["Signal"],
+            }
+            for index, row in crossovers.iterrows()
+        ]
+
+        data = {
+            "ticker": stock,
+            "series": series,
+            "signals": signals,
+            "signal_strategy": "ma20_50_crossover",
+        }
+
+        snapshot_id = put_snapshot("price", data, ticker=stock)
+        # Signals are what a later agent would act on, so record their
+        # generation against the exact price snapshot they came from.
+        if signals:
+            write_audit(
+                "signals_generated",
+                entity=stock,
+                payload={
+                    "strategy": "ma20_50_crossover",
+                    "signal_count": len(signals),
+                    "latest": signals[-1],
+                },
+                snapshot_ref=snapshot_id,
+            )
         db.session.commit()
+        data["snapshot_ref"] = snapshot_id
         return jsonify(data)
     except Exception as e:
         db.session.rollback()
         # Fall back to stale data rather than breaking the chart entirely.
         stale, _ = get_snapshot("price", ticker=stock, max_age_seconds=30 * 24 * 3600)
-        if stale is not None:
+        if isinstance(stale, dict) and "series" in stale:
             return jsonify(stale), 200
         status = 429 if ("Rate limit" in str(e) or "Too Many Requests" in str(e)) else 500
         return jsonify({"error": str(e)}), status

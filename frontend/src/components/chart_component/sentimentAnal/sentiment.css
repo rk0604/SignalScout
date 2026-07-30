@@ -161,3 +161,48 @@
     margin-top: 30px;
     z-index: 999;
 }
+/* ---- Sentiment scoring display (Phase 4) ---- */
+
+/* Aggregate badge + counts shown above the headline list */
+.sentiment-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0 6px;
+}
+
+.sentiment-badge {
+    padding: 3px 10px;
+    border: 1px solid currentColor;
+    border-radius: 3px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-family: ui-monospace, "IBM Plex Mono", "Roboto Mono", monospace;
+}
+
+.sentiment-breakdown {
+    font-size: 11px;
+    color: #8A929E;
+    font-family: ui-monospace, "IBM Plex Mono", "Roboto Mono", monospace;
+}
+
+/* Per-headline score sits to the left of the headline text */
+.headline-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    text-align: left;
+}
+
+.headline-score {
+    flex: 0 0 auto;
+    min-width: 3.5em;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, "IBM Plex Mono", "Roboto Mono", monospace;
+    cursor: help;
+}

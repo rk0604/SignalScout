@@ -9,3 +9,11 @@
     margin: 20px auto;
     transition: transform 0.3s ease-in-out;
 }
+/* Crossover callout above/below the chart */
+.signal-callout {
+    margin: 4px 0 8px;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    color: #E6E8EB;
+}

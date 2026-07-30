@@ -3,6 +3,12 @@ import "./holdings.css";
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal'
 
+// Analysis panels shown when a holding is opened
+import StockChart from '../chart_component/PriceChart/PriceChart';
+import StockOverview from '../chart_component/stockOverview/overView';
+import StockRisk from '../chart_component/riskComponent/riskAnal';
+import SentimentAnalysis from '../chart_component/sentimentAnal/SentAnal';
+
 Modal.setAppElement("#root");
 
 export function DisplayHoldings(){
@@ -85,7 +91,17 @@ export function DisplayHoldings(){
                                 <p><span className="holding-value ibm-plex-sans-medium">Shares: </span>{holding.num_shares}</p>
                                 <p><span className="holding-value ibm-plex-sans-medium">Average Price: </span>${holding.avg_price}</p>
                                 <p><span className="holding-value ibm-plex-sans-medium" style={{color: '#0BDA51'}} >Value of Holding: </span>${holding.value.toLocaleString()}</p>
-                                <p><span className="holding-value ibm-plex-sans-medium">% Return On Investment (ROI): </span>{holding.total_return.toFixed(2)}%</p>
+                                <p>
+                                  <span className="holding-value ibm-plex-sans-medium">% Return On Investment (ROI): </span>
+                                  {/* total_return is null when the quote is unavailable */}
+                                  {typeof holding.total_return === 'number' ? (
+                                    <span style={{ color: holding.total_return >= 0 ? '#16C784' : '#EA3943' }}>
+                                      {holding.total_return >= 0 ? '+' : ''}{holding.total_return.toFixed(2)}%
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#8A929E' }}>—</span>
+                                  )}
+                                </p>
                             </div>
                         ))}
                         <Modal 
@@ -109,11 +125,31 @@ export function DisplayHoldings(){
                                 },
                             }}
                             >
-                               <h1>Stock {selectedHolding}</h1>
-                               <h3>Show a sentiment analysis***</h3>
-                               <h3>Show a stock price chart</h3>
+                               <h2 className="stock-year">Ticker: {selectedHolding}</h2>
 
-                               <button 
+                               {/* Only mount the analysis panels once a holding is chosen,
+                                   so they don't fetch with an empty ticker. */}
+                               {selectedHolding && (
+                                 <>
+                                   <div className="stock-content">
+                                     <StockChart stock={selectedHolding} />
+                                   </div>
+
+                                   <div className="stock-content">
+                                     <StockOverview stock={selectedHolding} />
+                                   </div>
+
+                                   <div className="stock-content">
+                                     <StockRisk stock={selectedHolding} />
+                                   </div>
+
+                                   <div className="stock-content">
+                                     <SentimentAnalysis stock={selectedHolding} />
+                                   </div>
+                                 </>
+                               )}
+
+                               <button
                                 onClick={() => {
                                     setSelectedHolding("");
                                     setModalIsOpen(false)
