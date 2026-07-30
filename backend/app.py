@@ -733,4 +733,8 @@ sp500_tickers = [
 
 # ------------------------------------------------------ run python server ------------------------------------------------------
 if __name__ == "__main__":
+    # Create tables if they don't exist yet (safe/idempotent) so a fresh
+    # database (e.g. a new Neon project) is initialized on first boot.
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
