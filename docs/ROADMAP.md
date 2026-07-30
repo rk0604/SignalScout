@@ -137,7 +137,7 @@ into the phases below rather than fixed standalone.
 
 | Phase | Theme | Depends on | Effort | Status |
 |---|---|---|---|---|
-| 1 | Auth (JWT) + audit ledger | — | M | `TODO` |
+| 1 | Auth (JWT) + audit ledger | — | M | `DONE` |
 | 2 | Deploy (Render + Vercel + Neon) | 1 | M | `TODO` |
 | 3 | Provenance & caching layer | 1 | M | `TODO` |
 | 4 | Signals & sentiment (+ finish stubbed modal) | 1, 3 | M | `TODO` |
@@ -152,7 +152,13 @@ Fastest resume impact: **1 → 2 → 5** (secure it, ship it, make it impressive
 
 ---
 
-## Phase 1 — Auth (JWT) + audit ledger  `TODO`
+## Phase 1 — Auth (JWT) + audit ledger  `DONE`
+
+> Shipped on `dev`. `audit_log` is live in Neon; `snapshot_ref` is present but stays
+> NULL until Phase 3 creates `market_snapshot`. Token is stored in localStorage
+> (httpOnly-cookie upgrade still open). No client-side route guard yet: an
+> unauthenticated visitor to `/dashboard` sees an empty shell and is bounced by the
+> first 401 — the server-side boundary holds, but a guard would be tidier.
 
 **Goal:** real identity, and the append-only ledger that makes everything auditable.
 Closes the "anyone can read anyone's portfolio" hole.
