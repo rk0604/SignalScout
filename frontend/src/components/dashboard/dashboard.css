@@ -11,18 +11,29 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
-/* 📌 Dashboard Grid Layout */
+/* 📌 Dashboard Grid Layout
+   The areas below use three columns, so grid-template-columns must declare
+   three; it previously declared two, which left the third area unplaced and
+   opened a large gap in the middle of the dashboard.
+   Height is min-height so content can grow instead of being clipped. */
 .dashboard-container {
   display: grid;
   grid-template-areas:
+    'portfolio portfolio portfolio'
     'chart chart stats'
     'holdings trades stats';
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr;
   grid-template-rows: auto;
-  gap: 20px;
-  padding: 20px;
-  width: 100vw;
-  height: 100vh;
+  gap: 16px;
+  padding: 16px;
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 📈 Portfolio roll-up spans the full width above everything else */
+.portfolio-section {
+  grid-area: portfolio;
 }
 
 /* 📊 Chart Section */
@@ -94,6 +105,7 @@ body {
 @media (max-width: 768px) {
   .dashboard-container {
     grid-template-areas:
+      'portfolio'
       'chart'
       'stats'
       'holdings'

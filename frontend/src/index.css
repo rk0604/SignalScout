@@ -1,68 +1,65 @@
+/*
+ * Design tokens — dark Bloomberg-terminal aesthetic.
+ *
+ * Variables only, plus a minimal base. Component stylesheets keep their own
+ * layout; this file deliberately avoids resets (no body flex, no button
+ * restyling) so it can be adopted without breaking existing screens.
+ * See docs/ROADMAP.md -> "UI design language".
+ */
+
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* Surfaces — near-black, layered */
+  --bg:      #0A0A0A;  /* app canvas           */
+  --panel:   #101215;  /* card / panel bg      */
+  --panel-2: #16191D;  /* raised / hover       */
+  --border:  #23262B;  /* 1px hairline borders */
+  --grid:    #1B1E22;  /* chart gridlines      */
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  /* Brand + data semantics */
+  --amber: #FFB000;  /* primary accent, headers, active state */
+  --up:    #16C784;  /* gains / buy   */
+  --down:  #EA3943;  /* losses / sell */
+  --cyan:  #35B7F3;  /* links, secondary data */
+  --hold:  #A7B0BC;  /* neutral / hold */
+  --violet:#A78BFA;  /* secondary series (e.g. MA50) */
 
+  /* Text */
+  --text:  #E6E8EB;  /* primary          */
+  --muted: #8A929E;  /* labels, captions */
+  --dim:   #565D66;  /* de-emphasized    */
+
+  /* Typography */
+  --font-mono: ui-monospace, "IBM Plex Mono", "Roboto Mono", "SF Mono", Menlo, monospace;
+
+  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+/* Terminal caption: small, uppercase, wide-tracked label text. */
+.tw-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Numeric cells: monospaced and tabular so columns line up. */
+.tw-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
+/* Sign-encoded colours for data values. */
+.tw-up   { color: var(--up); }
+.tw-down { color: var(--down); }
+.tw-flat { color: var(--hold); }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* Flat, hairline-bordered panel; no shadow, minimal radius. */
+.tw-panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 3px;
 }

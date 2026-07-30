@@ -1,5 +1,6 @@
 
 import DisplayHoldings from "../portfolio_component/holdings";
+import PortfolioSummary from "../portfolio_component/PortfolioSummary";
 import QueryStock from "../chart_component/QueryStock";
 import { Recommendations } from "../chart_component/stock_rec";
 import ReuseCard from "../chart_component/ui_component";
@@ -8,6 +9,9 @@ import "./dashboard.css";
 const Dashboard = () => {
   return (
     <div className="dashboard-container">
+      <div className="portfolio-section">
+        <PortfolioSummary />
+      </div>
       <div className="chart-section">
         <ReuseCard>
           <Recommendations/>

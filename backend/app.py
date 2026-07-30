@@ -281,6 +281,38 @@ def get_last_quote(ticker):
         print(f"Quote lookup failed for {ticker}: {e}")
         return None
 
+def get_quote_pair(ticker):
+    """
+    (last_close, previous_close) for a ticker, preferring stored data.
+
+    The previous close is what makes a day change computable. Either element
+    may be None when the data is unavailable.
+    """
+    # A price snapshot holds a year of closes; its tail gives both values.
+    price_snap, _ = get_snapshot("price", ticker=ticker)
+    if isinstance(price_snap, dict) and price_snap.get("series"):
+        series = price_snap["series"]
+        last = series[-1].get("price")
+        prev = series[-2].get("price") if len(series) > 1 else None
+        return last, prev
+
+    cached, _ = get_snapshot("quote", ticker=ticker)
+    if isinstance(cached, dict) and cached.get("price") is not None:
+        return cached["price"], cached.get("prev_price")
+
+    try:
+        data = yf.Ticker(ticker).history(period="5d")
+        if data.empty:
+            return None, None
+        closes = [float(c) for c in data["Close"].tolist()]
+        last = closes[-1]
+        prev = closes[-2] if len(closes) > 1 else None
+        put_snapshot("quote", {"price": last, "prev_price": prev}, ticker=ticker)
+        return last, prev
+    except Exception as e:
+        print(f"Quote pair lookup failed for {ticker}: {e}")
+        return None, None
+
 def write_audit(action, entity=None, payload=None, actor_email=None, snapshot_ref=None):
     """
     Append one row to the audit ledger.
@@ -885,6 +917,92 @@ def get_holdings():
     db.session.commit()  # persist any quote snapshots created above
     # print('holdings list: ', holdings_list)
     return jsonify({"holdings": holdings_list}), 200
+
+# ---------------------------------------------- Portfolio analytics ------------------------------------------------------------------------------
+
+@app.route('/portfolio-summary', methods=['GET'])
+@require_auth
+def portfolio_summary():
+    """
+    Aggregate view of the authenticated user's portfolio.
+
+    Individual holdings are tracked elsewhere; this rolls them up into the
+    numbers a dashboard needs: value, cost basis, unrealized P/L, day change,
+    allocation weights and the best/worst performer.
+    """
+    holdings = Holdings.query.filter_by(email=g.user_email).all()
+    owned = [h for h in holdings if h.num_shares and h.num_shares != 0]
+
+    positions = []
+    total_value = 0.0
+    total_cost = 0.0
+    prev_value = 0.0            # portfolio value at yesterday's close
+    day_change_known = False    # False if no holding had a previous close
+
+    for h in owned:
+        shares = int(h.num_shares)
+        avg_price = float(h.avg_price)
+        cost_basis = avg_price * shares
+
+        last, prev = get_quote_pair(h.ticker)
+        # Fall back to cost basis so an unavailable quote doesn't zero out the
+        # portfolio; the position is flagged so the UI can mark it stale.
+        market_price = float(last) if last is not None else avg_price
+        market_value = market_price * shares
+
+        pl_abs = market_value - cost_basis
+        pl_pct = (pl_abs / cost_basis * 100) if cost_basis else None
+
+        if prev is not None:
+            prev_value += float(prev) * shares
+            day_change_known = True
+        else:
+            prev_value += market_value  # contributes zero day change
+
+        total_value += market_value
+        total_cost += cost_basis
+
+        positions.append({
+            "ticker": h.ticker,
+            "num_shares": shares,
+            "avg_price": avg_price,
+            "last_quote": float(last) if last is not None else None,
+            "market_value": market_value,
+            "cost_basis": cost_basis,
+            "pl_abs": pl_abs,
+            "pl_pct": pl_pct,
+            "quote_available": last is not None,
+        })
+
+    # Allocation weights, largest first.
+    for p in positions:
+        p["weight"] = (p["market_value"] / total_value * 100) if total_value else 0.0
+    positions.sort(key=lambda p: p["market_value"], reverse=True)
+
+    ranked = [p for p in positions if p["pl_pct"] is not None]
+    ranked.sort(key=lambda p: p["pl_pct"], reverse=True)
+
+    total_return_abs = total_value - total_cost
+    day_change_abs = (total_value - prev_value) if day_change_known else None
+
+    summary = {
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        "total_value": total_value,
+        "total_cost": total_cost,
+        "total_return_abs": total_return_abs,
+        "total_return_pct": (total_return_abs / total_cost * 100) if total_cost else None,
+        "day_change_abs": day_change_abs,
+        "day_change_pct": (day_change_abs / prev_value * 100) if (day_change_known and prev_value) else None,
+        "position_count": len(positions),
+        "pinned_count": sum(1 for h in holdings if h.pinned and (not h.num_shares)),
+        "positions": positions,
+        "best": ranked[0] if ranked else None,
+        "worst": ranked[-1] if len(ranked) > 1 else None,
+        "stale_quotes": [p["ticker"] for p in positions if not p["quote_available"]],
+    }
+
+    db.session.commit()  # persist any quote snapshots fetched above
+    return jsonify(summary), 200
 
 #use this route to see if a user can unpin a stock
 @app.route('/remove-pinned-stock', methods=['GET'])
