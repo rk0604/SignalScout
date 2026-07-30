@@ -138,8 +138,8 @@ into the phases below rather than fixed standalone.
 | Phase | Theme | Depends on | Effort | Status |
 |---|---|---|---|---|
 | 1 | Auth (JWT) + audit ledger | — | M | `DONE` |
-| 2 | Deploy (Render + Vercel + Neon) | 1 | M | `TODO` |
-| 3 | Provenance & caching layer | 1 | M | `TODO` |
+| 2 | Deploy (Render + Vercel + Neon) | 1 | M | `IN PROGRESS` |
+| 3 | Provenance & caching layer | 1 | M | `DONE` |
 | 4 | Signals & sentiment (+ finish stubbed modal) | 1, 3 | M | `TODO` |
 | 5 | Portfolio analytics dashboard | 3 | M | `TODO` |
 | 6 | Backtesting & strategy performance | 3, 4 | M | `TODO` |
@@ -186,7 +186,13 @@ produces an `audit_log` row queryable by `actor_email`.
 
 ---
 
-## Phase 2 — Deploy  `TODO`
+## Phase 2 — Deploy  `IN PROGRESS`
+
+> Code and config are done: `render.yaml`, `frontend/vercel.json`, debug defaults
+> off, `flask init-db`, `/health`, comma-separated CORS origins, `postgres://`
+> normalisation. **Remaining work is account-side and must be done by the repo
+> owner** — connecting Render and Vercel and pasting env vars. Step-by-step:
+> [DEPLOY.md](DEPLOY.md).
 
 **Goal:** a live URL + config hygiene.
 
@@ -203,7 +209,12 @@ produces an `audit_log` row queryable by `actor_email`.
 
 ---
 
-## Phase 3 — Provenance & caching layer  `TODO`
+## Phase 3 — Provenance & caching layer  `DONE`
+
+> Shipped on `dev`. `market_snapshot` is live; `audit_log.snapshot_ref` is now
+> populated for recommendation snapshots. Not yet done: the `sentiment` kind is
+> defined but unused until Phase 4, and there is no snapshot pruning, so the table
+> grows without bound (fine at this scale, worth a retention policy later).
 
 **Goal:** every yfinance call becomes a timestamped, reusable snapshot.
 
