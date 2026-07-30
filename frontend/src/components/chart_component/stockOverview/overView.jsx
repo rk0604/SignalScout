@@ -1,13 +1,11 @@
 import './overview.css'
 import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../../../api/client';
 
 // used to display the basic financial data for a stock
 export const StockOverview = ({ stock }) => {
-  const API_URL = import.meta.env.VITE_API_URL;
   const [stockData, setStockData] = useState(null); // holds the stock data
-  const [userPinnedStocks, setPinnedaStocks] = useState([]); // holds the set of stocks the user has pinned 
 
   // Fetch stock details from Flask backend using yfinance API
   const fetchStockDetails = async () => {
@@ -16,12 +14,7 @@ export const StockOverview = ({ stock }) => {
     console.log('fetching stock details: ', stock)
 
     try {
-      const response = await axios.post(`${API_URL}/fetch-stock-data`, stockToSend, {
-        withCredentials: true,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await api.post('/fetch-stock-data', stockToSend);
       // console.log("📥 Raw API Response:", response.data);
       if (response.status === 200 && response.data?.financials) {
         let financials = response.data.financials;

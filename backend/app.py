@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, g
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,16 +8,18 @@ from dotenv import load_dotenv
 import yfinance as yf
 import json
 import csv
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 from flask_sqlalchemy import SQLAlchemy
 import bcrypt
 import uuid
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm.attributes import flag_modified
 import time
 import requests
 from bs4 import BeautifulSoup
 from textblob import TextBlob
+import jwt
+from functools import wraps
 
 app = Flask(__name__)
 app.config["DEBUG"] = True  # Enables hot reloading
@@ -25,8 +27,22 @@ load_dotenv()
 # path and env variable load
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-# Restrict CORS to only allow requests from the frontend
-CORS(app, resources={r"/*": {"origins": FRONTEND_URL}}, supports_credentials=True)
+# JWT signing secret. Fail loudly rather than silently signing with a default,
+# which would let anyone forge a token.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY is not set. See backend/.env.example.")
+JWT_EXP_HOURS = int(os.getenv("JWT_EXP_HOURS", "24"))
+JWT_ALGORITHM = "HS256"
+
+# Restrict CORS to only allow requests from the frontend.
+# Authorization must be an allowed request header so the browser will send the bearer token.
+CORS(
+    app,
+    resources={r"/*": {"origins": FRONTEND_URL}},
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization", "Accept"],
+)
 
 # ------------------------------------------------------- Configure PostgreSQL database URI -------------------------------------------------------------------
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
@@ -50,7 +66,9 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     phone = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(255), unique=True, nullable=False)
+    # NOT unique: two users may legitimately choose the same password, and the
+    # stored value is a salted bcrypt hash anyway.
+    password = db.Column(db.String(255), nullable=False)
 
 class Holdings(db.Model):
     __tablename__ = "user_holdings"
@@ -61,6 +79,92 @@ class Holdings(db.Model):
     num_shares = db.Column(db.Integer, unique=False, nullable=False)
     value = db.Column(db.Numeric(precision=10, scale=2), unique=False, nullable=False)
     pinned = db.Column(db.Boolean, unique=False, nullable=False, default=False)
+
+class AuditLog(db.Model):
+    """
+    Append-only ledger of every state-changing action.
+
+    This is the audit substrate the project is built around: it answers
+    "who did what, when, and on what evidence". Nothing in the codebase may
+    UPDATE or DELETE rows in this table.
+    """
+    __tablename__ = "audit_log"
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_email = db.Column(db.String(120), nullable=True, index=True)
+    action = db.Column(db.String(64), nullable=False)      # login, pin, buy, sell, ...
+    entity = db.Column(db.String(120), nullable=True)      # ticker or resource id
+    payload = db.Column(JSONB, nullable=True)              # full detail of the action
+    snapshot_ref = db.Column(UUID(as_uuid=True), nullable=True)  # -> market_snapshot (Phase 3)
+    request_id = db.Column(db.String(64), nullable=True)   # correlates rows from one request
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, server_default=db.func.now()
+    )
+
+# ----------------------------------------------- auth & audit helpers -------------------------------------------------------------------------------
+
+@app.before_request
+def assign_request_id():
+    """Give every request an id so related audit rows can be correlated."""
+    g.request_id = str(uuid.uuid4())
+
+def create_access_token(email: str) -> str:
+    """Issue a signed JWT carrying the user's identity."""
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": email,
+        "iat": now,
+        "exp": now + timedelta(hours=JWT_EXP_HOURS),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+def require_auth(view):
+    """
+    Gate a route behind a valid bearer token.
+
+    The authenticated email is placed on `g.user_email`. Routes must read the
+    identity from there and never from the request body/query string, otherwise
+    any caller could act as any user.
+    """
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "Missing or malformed Authorization header"}), 401
+
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            claims = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+
+        email = (claims.get("sub") or "").lower()
+        if not email:
+            return jsonify({"error": "Token missing subject"}), 401
+
+        g.user_email = email
+        return view(*args, **kwargs)
+
+    return wrapper
+
+def write_audit(action, entity=None, payload=None, actor_email=None, snapshot_ref=None):
+    """
+    Append one row to the audit ledger.
+
+    Committed by the caller alongside the change it describes, so the ledger
+    entry and the state change succeed or fail together.
+    """
+    entry = AuditLog(
+        actor_email=actor_email or getattr(g, "user_email", None),
+        action=action,
+        entity=entity,
+        payload=payload,
+        snapshot_ref=snapshot_ref,
+        request_id=getattr(g, "request_id", None),
+    )
+    db.session.add(entry)
+    return entry
 
 # ----------------------------------------------- helper functions -------------------------------------------------------------------------------
 
@@ -91,11 +195,13 @@ def register():
     password = data['password'].encode('utf-8')  
     hashed_password = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')  # Convert bytes to string
 
-    user1 = User(email=data['email'].lower(), phone=data['phone'], password=hashed_password)
-    
+    email = data['email'].lower()
+    user1 = User(email=email, phone=data['phone'], password=hashed_password)
+
     try:
-        db.session.add(user1)  
-        db.session.commit() 
+        db.session.add(user1)
+        write_audit("register", entity=email, payload={"email": email}, actor_email=email)
+        db.session.commit()
         return jsonify({"message": "Successfully registered the user"}), 200
     except Exception as e:
         db.session.rollback()  # Rollback in case of error
@@ -122,19 +228,32 @@ def login():
 
         # Validate password using bcrypt.checkpw()
         if bcrypt.checkpw(password, user.password.encode('utf-8')):
-            return jsonify({"message": "Successful login"}), 200
+            token = create_access_token(email)
+            write_audit("login", entity=email, actor_email=email)
+            db.session.commit()
+            return jsonify({
+                "message": "Successful login",
+                "token": token,
+                "email": email,
+                "expires_in": JWT_EXP_HOURS * 3600,
+            }), 200
         else:
+            # Failed attempts are part of the audit trail too.
+            write_audit("login_failed", entity=email, actor_email=email)
+            db.session.commit()
             return jsonify({"error": "Invalid email or password"}), 400
 
     except Exception as e:
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 # ------------------------------------------------ trading routes -------------------------------------------------------------------------------
 
 # gets a specific stock's data
 @app.route('/fetch-stock-data', methods=['POST'])
+@require_auth
 def fetch_specific_stock_data():
-    request_data = request.get_json()
+    request_data = request.get_json(silent=True) or {}
     print("Received request:", request_data)
 
     if "ticker" not in request_data:
@@ -175,12 +294,12 @@ def fetch_specific_stock_data():
 
 # use this route to fetch 30 recommendations of stock to buyimport time
 @app.route('/fetch-recs', methods=['POST'])
-def fetchRecommendations():  
+@require_auth
+def fetchRecommendations():
     rec_arr = {}  # Stores calculated buy/hold/sell values
     stock_rec = {}  # Stores final stock recommendations
-    request_data = request.get_json() 
-    email_in = request_data['email'].lower() # Get the email
-    
+    email_in = g.user_email  # identity comes from the verified token, not the body
+
     # Add pinned stocks to the list
     pinnedStocks = fetchPinnedStocks(email_in)
     combined_recs = sp500_tickers + pinnedStocks
@@ -271,8 +390,9 @@ def fetchPinnedStocks(email: str) -> list: # return a list of tickers
 
 # route to get the risk analysis for a stock
 @app.route('/fetch-risk-anal', methods=['POST'])
+@require_auth
 def getRiskAnalysis():
-    request_data = request.get_json()
+    request_data = request.get_json(silent=True) or {}
     print("Received request in risk anal:", request_data) # AMZN
     risk_analysis_to_send = {}
     
@@ -315,14 +435,14 @@ def getRiskAnalysis():
 
 #use this route to update the user's holdings
 @app.route('/update-holdings', methods=['POST'])
+@require_auth
 def updateHoldings():
     """
-    This route updates a user's holdings:
+    This route updates the authenticated user's holdings:
       - Buying new shares (shares > 0)
       - Selling existing shares (shares < 0)
       - Creating a completely new holding (with nonzero shares)
       {
-        "email": "rishabk2004@gmail.com",
         "holdingsUpdate": {
             "ticker": "ICE",
             "price": "85.5",
@@ -330,22 +450,27 @@ def updateHoldings():
         }
         }
     """
-    request_data = request.get_json()
+    request_data = request.get_json(silent=True) or {}
 
-    email_in = request_data.get("email", "").lower()
-    holdings_data = request_data.get("holdingsUpdate", {})
+    email_in = g.user_email  # from the token; callers cannot act as another user
+    holdings_data = request_data.get("holdingsUpdate", {}) or {}
 
-    ticker_in = holdings_data.get("ticker", "").upper()
-    price = float(holdings_data.get("price", 0))
-    shares = int(holdings_data.get("num_shares", 0))
-
-    # shares: 5, price: 173.84, ticker_in: ICE, email_in: rishabk2004@gmail.com
+    ticker_in = (holdings_data.get("ticker") or "").upper()
+    try:
+        price = float(holdings_data.get("price", 0))
+        shares = int(holdings_data.get("num_shares", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "price must be a number and num_shares an integer"}), 400
 
     print(f'shares: {shares}, price: {price}, ticker_in: {ticker_in}, email_in: {email_in}')
 
     # Basic validation
-    if not email_in or not ticker_in or price is None or shares is None:
-        return jsonify({"error": "Email, ticker, price, and num_shares are required"}), 400
+    if not ticker_in:
+        return jsonify({"error": "ticker is required"}), 400
+    if shares == 0:
+        return jsonify({"error": "num_shares must be non-zero"}), 400
+    if price < 0:
+        return jsonify({"error": "price cannot be negative"}), 400
 
     try:
         existing_holding = Holdings.query.filter_by(email=email_in, ticker=ticker_in).first()
@@ -357,6 +482,7 @@ def updateHoldings():
                     return jsonify({"error": "Not enough shares to sell"}), 400
 
                 existing_holding.num_shares -= abs_shares
+                sold_ticker = existing_holding.ticker
                 if existing_holding.num_shares == 0:
                     # All sold, remove holding
                     db.session.delete(existing_holding)
@@ -366,11 +492,16 @@ def updateHoldings():
                     flag_modified(existing_holding, "num_shares")
                     flag_modified(existing_holding, "value")
 
+                write_audit("sell", entity=ticker_in, payload={
+                    "shares_sold": abs_shares,
+                    "price": price,
+                    "shares_remaining": existing_holding.num_shares,
+                })
                 db.session.commit()
                 return jsonify({
                     "message": "Shares sold successfully",
                     "data": {
-                        "ticker":existing_holding.ticker
+                        "ticker": sold_ticker
                     }
                     }), 200
 
@@ -392,6 +523,12 @@ def updateHoldings():
                 flag_modified(existing_holding, "avg_price")
                 flag_modified(existing_holding, "value")
 
+                write_audit("buy", entity=ticker_in, payload={
+                    "shares_bought": shares,
+                    "price": price,
+                    "shares_held": existing_holding.num_shares,
+                    "new_avg_price": float(new_avg_price),
+                })
                 db.session.commit()
 
                 return jsonify({
@@ -421,6 +558,11 @@ def updateHoldings():
                 pinned=True  # or True, depending on your logic
             )
             db.session.add(new_holding)
+            write_audit("buy_new", entity=ticker_in, payload={
+                "shares_bought": shares,
+                "price": price,
+                "value": value_of_shares,
+            })
             db.session.commit()
 
             return jsonify({
@@ -443,22 +585,24 @@ def updateHoldings():
     
 #pin-holdings
 @app.route('/pin-stock', methods=['POST'])
+@require_auth
 def pinStock():
-    request_data = request.get_json()
-    email = request_data['email'].lower()
-    ticker = request_data['query'].upper() # get the queried ticker and user email 
-    
+    request_data = request.get_json(silent=True) or {}
+    email = g.user_email
+    ticker = (request_data.get('query') or "").upper()  # ticker from body, identity from token
+
     # Early return to handle incomplete request
-    if email == None or ticker == None:
-        return jsonify({"message": "invalid credentials"}), 400
-    
+    if not ticker:
+        return jsonify({"message": "ticker is required"}), 400
+
     # check if an holding already exists
     existing_holding = Holdings.query.filter_by(email=email, ticker=ticker).first()
     if existing_holding:
         return jsonify({"message": "holding exists already, cant pin it again"}), 401
-    
+
     new_pinned_holding = Holdings(email=email, ticker=ticker, avg_price=0.0, num_shares=0, value=0.0, pinned=True)
     db.session.add(new_pinned_holding)
+    write_audit("pin", entity=ticker)
     db.session.commit()
     return jsonify({
                 "message": "New pinned stock added successfully",
@@ -467,21 +611,20 @@ def pinStock():
     
 # use this route to get the pinned stocks
 @app.route('/fetch-pins', methods=['GET'])
+@require_auth
 def fetchUserPins():
-    email = request.args.get('userEmail').lower()    
-    holdings = Holdings.query.filter_by(email=email).all()
-    
+    holdings = Holdings.query.filter_by(email=g.user_email).all()
+
     pinned_list = [h.ticker for h in holdings if h.pinned == True]
     # print(pinned_list) # ['ASTS', 'ABT', 'BDX', 'AVGO', 'NVDA', 'AMZN', 'TSLA']
-    return pinned_list
+    return jsonify(pinned_list), 200
 #return this array {stock :stock.ticker, pinned: stock.pinned}
     
 # gets the user's current stock holdings
 @app.route('/get-holdings', methods=['GET'])
+@require_auth
 def get_holdings():
-    email = request.args.get('userEmail').lower()
-    if not email:
-        return jsonify({"error": "Missing email parameter"}), 400
+    email = g.user_email
     # print('get holdings for: ',email)
 
     holdings = Holdings.query.filter_by(email=email).all()
@@ -519,13 +662,14 @@ def get_holdings():
 
 #use this route to see if a user can unpin a stock
 @app.route('/remove-pinned-stock', methods=['GET'])
+@require_auth
 def remove_pin():
-    query = request.args.get('query').upper()
-    email = request.args.get('email').lower()
+    query = (request.args.get('query') or "").upper()
+    email = g.user_email
 
     # Early return in case of incorrect credentials
-    if not email or not query:
-        return jsonify({"error": "Missing email or ticker parameter"}), 400
+    if not query:
+        return jsonify({"error": "Missing ticker parameter"}), 400
 
     # Find the holding
     # print('this is the query to be removed: ',query)
@@ -533,8 +677,9 @@ def remove_pin():
 
     # Ensure holding exists before checking attributes
     if holding:
-        if holding.avg_price == 0.0:  
+        if holding.avg_price == 0.0:
             db.session.delete(holding)
+            write_audit("unpin", entity=query)
             db.session.commit()
             return jsonify({"message": f"Holding for {query} deleted successfully"}), 200
         else:
@@ -570,6 +715,7 @@ def get_stock_news(ticker):
     return news_data
 
 @app.route("/get-sentiment-analysis", methods=["GET"])
+@require_auth
 def fetchSentiAnal():
     """
     API endpoint that takes a stock ticker and returns sentiment analysis along with Yahoo Finance news links.
@@ -592,6 +738,7 @@ def fetchSentiAnal():
     
 # fetches the data for making the price chart
 @app.route('/get-chart-data', methods=['GET'])
+@require_auth
 def fetchPriceChartData():
     stock = request.args.get("stock", "").upper()  # Get stock ticker from query param
 

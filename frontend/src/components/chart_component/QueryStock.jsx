@@ -1,9 +1,9 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext } from 'react';
 import './query.css';
 import Modal from 'react-modal';
 import StockOverview from './stockOverview/overView';
 import { StockContext } from '../StockContext';
-import axios from 'axios';
+import api from '../../api/client';
 
 Modal.setAppElement("#root");
 
@@ -16,8 +16,6 @@ const QueryStock = () => {
   const [modalIsOpen, setModalIsOpen] = useState(false); // Manages the closed/open state of the modal 
   const [stockTicker, setStockTicker] = useState(''); // Holds the stock ticker for display
   const [selectedStock, setSelectedStock] = useState(null); // Holds selected stock for analysis
-  const [email, setEmail] = useState('')
-  const API_URL = import.meta.env.VITE_API_URL;
 
   // ----------------------------------------------Helper Functions------------------------------------------------------------------------
 
@@ -63,16 +61,8 @@ const QueryStock = () => {
       return
     }
 
-    const payload = {
-      email,
-      query
-    };    
-
     try{
-      const response = await axios.post(`${API_URL}/pin-stock`, payload,{
-        withCredentials:true,
-        headers:{  "Content-Type": "application/json"}
-      });
+      const response = await api.post('/pin-stock', { query });
 
       if(response.status === 200){
         // console.log('response: ',response.data)
@@ -82,9 +72,9 @@ const QueryStock = () => {
 
     }catch(err){
       const {response} = err;
-      switch(response.status){
+      switch(response?.status){
         case 400:
-          console.log("email and ticker details are required");
+          console.log("ticker is required");
           break;
         case 401:
           console.log('holding exists already, and is pinned');
@@ -105,12 +95,8 @@ const QueryStock = () => {
     }
 
     try{
-      const response = await axios.get(`${API_URL}/remove-pinned-stock`, {
-        params: {query: query, email: email},
-        withCredentials: true, 
-        headers: {
-            'Accept': 'application/json',
-        }
+      const response = await api.get('/remove-pinned-stock', {
+        params: { query: query },
       });
 
       if(response.status === 200){
@@ -124,7 +110,7 @@ const QueryStock = () => {
       }
     }catch(err){
       const {response} = err;
-      switch(response.status){
+      switch(response?.status){
         case 400:
           console.log('invalid query or credentials')
           break;
@@ -138,10 +124,6 @@ const QueryStock = () => {
       }
     }
   }
-
-  useEffect(() => {
-    setEmail(localStorage.getItem('email'));
-  }, []);  
 
   return (
     <div className="query-stock-card ibm-plex-sans-medium">

@@ -1,11 +1,10 @@
 import PropTypes from 'prop-types';
 import './risk.css'
-import axios from 'axios';
+import api from '../../../api/client';
 import { useState, useEffect } from 'react';
 
-// used to present the risk analysis for a stock 
+// used to present the risk analysis for a stock
 const StockRisk = ({stock}) =>{
-    const API_URL = import.meta.env.VITE_API_URL;
     const [volatility, setVolatility] = useState(null); // holds the annualized volatility of a stock
     const [debtToEquity, setDebtToEquity] = useState(null); // holds the debt to equity ratio
     const [currentRatio, setCurrentRatio] = useState(null); // holds the current rati
@@ -20,12 +19,7 @@ const StockRisk = ({stock}) =>{
         const data_to_send = {stock: stock}
 
         try{
-            const response = await axios.post(`${API_URL}/fetch-risk-anal`, data_to_send, {
-                withCredentials:true,
-                headers: {
-                    "Content-Type": "application/json"
-                }
-            });
+            const response = await api.post('/fetch-risk-anal', data_to_send);
 
             if(response && response.status === 200){
                 // console.log(response.data)

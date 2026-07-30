@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api, { setSession, clearSession } from "../../api/client";
 
 import "./auth_component_styles.css";
 
 // Register Page Component
 const RegisterPage = () => {
-  const API_URL = import.meta.env.VITE_API_URL; // Backend URL
   const navigate = useNavigate(); // Used to navigate to the login page after registration
   const [formdata, setFormdata] = useState({
     email: "",
@@ -26,10 +25,7 @@ const RegisterPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(`${API_URL}/register`, formdata, {
-        withCredentials: true,
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await api.post("/register", formdata);
 
       if (response.status === 200) {
         alert("Registration Successful");
@@ -88,7 +84,6 @@ const RegisterPage = () => {
 
 // Login Page Component
 export function LoginPage() {
-  const API_URL = import.meta.env.VITE_API_URL; // Backend URL
   const navigate = useNavigate(); // Used to navigate to the login page after registration
   const [formdata, setFormdata] = useState({
     email: "",
@@ -105,15 +100,14 @@ export function LoginPage() {
 
   const handleLogin = async(e) => {
     e.preventDefault();
-    localStorage.setItem('email',formdata.email)
+    // Drop any previous session so a failed login can't leave a stale token behind.
+    clearSession();
         try{
-            const response = await axios.post(`${API_URL}/login`, formdata, {
-                withCredentials:true,
-                headers: {  'Content-Type': 'application/json'}
-            });
+            const response = await api.post('/login', formdata);
 
-            if(response.status === 200){
-                alert('Login Successful');
+            if(response.status === 200 && response.data?.token){
+                // The token is now the credential; every later request carries it.
+                setSession(response.data.token, response.data.email || formdata.email);
                 navigate('/dashboard');
             }
 

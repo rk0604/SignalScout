@@ -1,8 +1,8 @@
 import { useEffect, useState, useContext } from "react";
 import './stockRec.css';
-import PropTypes, { object } from "prop-types";
+import PropTypes from "prop-types";
 import Modal from 'react-modal';
-import axios from "axios";
+import api from "../../api/client";
 
 // stock related component imports 
 import StockOverview from './stockOverview/overView'
@@ -14,9 +14,8 @@ import StockChart from "./PriceChart/PriceChart";
 Modal.setAppElement("#root");
 //update this to include the pinned stocks in query and fix the sleep timer bs, check fetchPinnedStocks
 export function Recommendations() {
-  const { pinnedStocks, setPinnedStocks } = useContext(StockContext); //access the context of the pinned stocks
+  const { setPinnedStocks } = useContext(StockContext); //access the context of the pinned stocks
   const [modalIsOpen, setModalIsOpen] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL;
   const [selectedStock, setSelectedStock] = useState("");
   const [recommendations, setRecommendations] = useState([]); 
   const [isLoading, setIsLoading] = useState(false); // track the loading state 
@@ -25,7 +24,6 @@ export function Recommendations() {
     price:'',
     num_shares:'',
   })
-  const [email, setEmail] = useState('');
 
 
 // ------------------------------------------------------------ Main functions (backend interactions) --------------------------------------------------------------------------
@@ -35,16 +33,11 @@ export function Recommendations() {
     setIsLoading(true); // start spinner
     try{
       console.log('fetching recs')
-      const response = await axios.post(`${API_URL}/fetch-recs`, {email}, {
-        withCredentials: true,
-        headers:{  "Content-Type": "application/json"}
-      });
+      const response = await api.post('/fetch-recs', {});
 
       if(response.status === 200){
         // console.log(response.data);
         setRecommendations(response.data)
-        localStorage.setItem('cachedRecs', response.data)
-        setIsLoading(false)
       }
 
     }catch(err){
@@ -63,18 +56,16 @@ export function Recommendations() {
       }else{
         console.log(err)
       }
+    }finally{
+      setIsLoading(false) // always stop the spinner, success or failure
     }
   }
 
   //update holdings for a stock
   const updateHoldings = async(e) =>{
     e.preventDefault() // prevent page reload
-    const payload = {email, holdingsUpdate}
     try{
-      const response = await axios.post(`${API_URL}/update-holdings`, payload,{
-        withCredentials:true,
-        headers:{  "Content-Type": "application/json"}
-      });
+      const response = await api.post('/update-holdings', { holdingsUpdate });
 
       if(response.status === 200){
         console.log('response: ',response.data)
@@ -121,13 +112,11 @@ export function Recommendations() {
 
   //main useEffect hook
   useEffect(() => {
-    setEmail(localStorage.getItem('email'));
-
     const timer = setTimeout(() => {
     // fetchRecs();
     }, 500); // Delay execution to prevent rapid calls
-  
-    return () => clearTimeout(timer); 
+
+    return () => clearTimeout(timer);
   }, []);
   
 

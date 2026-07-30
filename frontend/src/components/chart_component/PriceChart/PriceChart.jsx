@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   LineChart,
   Line,
@@ -9,34 +9,26 @@ import {
   CartesianGrid
 } from "recharts";
 import "./price.css";
+import api from "../../../api/client";
 
 const StockChart = ({ stock }) => {
-  const API_URL = import.meta.env.VITE_API_URL;
   const [data, setData] = useState([]);
   const [error, setError] = useState(null);
-  const [selectedStock, setSelectedStock] = useState(stock || "");
+  const [selectedStock] = useState(stock || "");
 
   useEffect(() => {
     if (!selectedStock) return;
 
     const fetchStockData = async () => {
       try {
-        const response = await fetch(`${API_URL}/get-chart-data?stock=${selectedStock}`, {
-          credentials: "include",
-          headers: { Accept: "application/json" },
+        const response = await api.get("/get-chart-data", {
+          params: { stock: selectedStock },
         });
 
-        const result = await response.json();
-
-        if (response.ok) {
-          setData(result);
-          setError(null);
-        } else {
-          setError(result.error || "Unknown error");
-          setData([]);
-        }
+        setData(response.data);
+        setError(null);
       } catch (err) {
-        setError("Failed to fetch data");
+        setError(err.response?.data?.error || "Failed to fetch data");
         setData([]);
       }
     };

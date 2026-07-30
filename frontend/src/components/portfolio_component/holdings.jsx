@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api, { isLoggedIn } from '../../api/client';
 import "./holdings.css";
 import { useState, useEffect } from 'react';
 import Modal from 'react-modal'
@@ -12,28 +12,20 @@ export function DisplayHoldings(){
      * 3. Displays the user's holdings in a table
      */
     const [holdings, setHoldings] = useState([]); // holds the user's holdings, and gets updated when user buys/sells a stock
-    const [userEmail, setUserEmail] = useState('') // holds the user email fetched from the localstorage, needed for querying
     const [modalIsOpen, setModalIsOpen] = useState(false);
     const [selectedHolding, setSelectedHolding] = useState("") //should be a sticker
 // ------------------------------------------------ Functions -------------------------------------------------------------------------------------------------------
-    
-    const API_URL = import.meta.env.VITE_API_URL;
 
-    // used to fetch the user's holdings from the backend
+    // used to fetch the user's holdings from the backend.
+    // Identity comes from the bearer token, so no email is passed.
     const fetchHoldings = async () => {
-        if (!userEmail) {
-            console.log('Invalid credentials for fetching user holdings');
+        if (!isLoggedIn()) {
+            console.log('Not logged in; cannot fetch holdings');
             return;
         }
         try {
-            const response = await axios.get(`${API_URL}/get-holdings`, {
-                params: { userEmail }, 
-                withCredentials: true, 
-                headers: {
-                    'Accept': 'application/json',
-                }
-            });
-    
+            const response = await api.get('/get-holdings');
+
             if (response.status === 200) {
                 // console.log(response.data.holdings);
                 setHoldings(response.data.holdings);
@@ -71,12 +63,10 @@ export function DisplayHoldings(){
 
 // --------------------------------------------------- Use effect hooks ------------------------------------------------------------------------------------------------
     useEffect(() => {
-        const userEmail = localStorage.getItem('email')
-        setUserEmail(userEmail)
-        // const timer = setTimeout(() => {
-        //     fetchHoldings();
-        //   }, 500); // Delay execution to prevent rapid calls
-        //   return () => clearTimeout(timer);
+        const timer = setTimeout(() => {
+            fetchHoldings();
+          }, 500); // Delay execution to prevent rapid calls
+          return () => clearTimeout(timer);
     },[]);
 
     return(

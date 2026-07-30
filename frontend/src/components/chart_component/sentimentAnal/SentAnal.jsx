@@ -1,11 +1,10 @@
 import './sentiment.css';
 import { useState } from 'react';
-import axios from 'axios';
+import api from '../../../api/client';
 
 
 function SentimentAnalysis({stock}){
-    const API_URL = import.meta.env.VITE_API_URL; // backend api url
-    const [selectedStock, setSelectedStock] = useState(stock || null); //
+    const [selectedStock] = useState(stock || null); //
     const [newsData, setNewsData] = useState([]) //hold the news data for the stock
     // every element inside the newsData[] has two attributes, headline and link
 
@@ -16,12 +15,8 @@ function SentimentAnalysis({stock}){
         }
         try{
             console.log('fetching sentiment analysis for: ', selectedStock)
-            const response = await axios.get(`${API_URL}/get-sentiment-analysis`,{
+            const response = await api.get('/get-sentiment-analysis',{
                 params: {stock: selectedStock},
-                withCredentials: true, 
-                headers: {
-                    'Accept': 'application/json',
-                }
               });
 
               if(response.status === 200){
@@ -32,7 +27,7 @@ function SentimentAnalysis({stock}){
 
         }catch(err){
             const {response} = err;
-            switch(response.status){
+            switch(response?.status){
                 case 400:
                     console.log('invalid query/credentials')
                     break;
