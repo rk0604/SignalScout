@@ -141,10 +141,10 @@ into the phases below rather than fixed standalone.
 | 2 | Deploy (Render + Vercel + Neon) | 1 | M | `IN PROGRESS` |
 | 3 | Provenance & caching layer | 1 | M | `DONE` |
 | 4 | Signals & sentiment (+ finish stubbed modal) | 1, 3 | M | `DONE` |
-| 5 | Portfolio analytics dashboard | 3 | M | `TODO` |
-| 6 | Backtesting & strategy performance | 3, 4 | M | `TODO` |
-| 7 | Realtime prices (WebSocket) | 2 | L | `TODO` |
-| 8 | AI agent layer (vision) | 1, 3, 6 | — | `TODO` |
+| 5 | Portfolio analytics dashboard | 3 | M | `DONE` |
+| 6 | Backtesting & strategy performance | 3, 4 | M | `DONE` |
+| 7 | Realtime prices (WebSocket) | 2 | L | `DONE` |
+| 8 | AI agent layer | 1, 3, 6 | — | `DONE` |
 
 **Recommended order:** 1 → 2 → 3 → 4 → 5 → 6, with 8 as the payoff (7 is optional polish).
 Phase 6 gates Phase 8: an agent should only trade a strategy that has been backtested.
@@ -265,7 +265,13 @@ holdings and search.
 
 ---
 
-## Phase 5 — Portfolio analytics dashboard  `TODO`
+## Phase 5 — Portfolio analytics dashboard  `DONE`
+
+> Shipped on `dev`. Allocation uses a **stacked bar, not the donut sketched below** —
+> part-to-whole is what that form is for, and a bar stays readable where a pie does
+> not. The categorical palette is validated against this panel surface; the tail
+> folds into "Other" past 7 positions rather than inventing hues. Also fixed the
+> dashboard grid, which declared three area columns but only two track columns.
 
 **Backend:** one `/portfolio-summary` endpoint (email from token), computed from cached
 snapshots: total market value, total cost basis, total unrealized P/L ($ and %),
@@ -308,7 +314,12 @@ dashboard renders all four tiles + donut + table from live data.
 
 ---
 
-## Phase 6 — Backtesting & strategy performance  `TODO`
+## Phase 6 — Backtesting & strategy performance  `DONE`
+
+> Shipped on `dev`. No look-ahead bias (verified by mutating future prices and
+> confirming earlier positions are unchanged); repeat runs match to six decimals.
+> Not yet done: single-ticker only (no portfolio-level backtest), and the only
+> strategies are MA crossover and buy-and-hold.
 
 **Goal:** measure how a strategy (or the agent's decisions) *would have performed* over
 history, before risking anything live. This is the empirical, auditable proof that a
@@ -351,7 +362,13 @@ as an immutable `backtest_run` row that reproduces on re-run.
 
 ---
 
-## Phase 7 — Realtime prices (WebSocket)  `TODO`
+## Phase 7 — Realtime prices (WebSocket)  `DONE`
+
+> Shipped on `dev`. Sockets authenticate with the same JWT as the REST API.
+> **Pseudo-realtime**: yfinance has no streaming feed, so the server polls every
+> `QUOTE_POLL_SECONDS`. Deployment runs a single gthread worker — Socket.IO keeps
+> per-connection state in the worker that accepted it, so multiple workers need a
+> shared message queue (Redis) first.
 
 **Goal:** live-updating quotes. **Lowest priority** — display-only; the agent reasons over
 discrete snapshots, not ephemeral ticks.
@@ -366,7 +383,19 @@ discrete snapshots, not ephemeral ticks.
 
 ---
 
-## Phase 8 — AI agent layer (vision)  `TODO`
+## Phase 8 — AI agent layer  `DONE`
+
+> Shipped on `dev`. The agent has no write access to holdings; approval is what
+> authorises execution. Requires `ANTHROPIC_API_KEY` — without it the agent routes
+> return 503 and nothing else is affected.
+>
+> **Verified with a seeded proposal, not a live model call** (no API key was
+> available in this environment): the approve/execute/reject machinery, the
+> refusal-to-execute-without-a-price path, the double-decision 409, and the linked
+> audit chain are all confirmed. The model call itself is unexercised.
+>
+> Open: proposals are advisory only — there is no position-size or risk limit
+> enforced server-side, and no scheduled/autonomous run (a human triggers each one).
 
 Everything above is scaffolding for this. The agent gets **no direct DB write access**;
 it runs a **propose → approve → execute** loop:
