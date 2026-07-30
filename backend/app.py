@@ -94,6 +94,28 @@ class Holdings(db.Model):
     value = db.Column(db.Numeric(precision=10, scale=2), unique=False, nullable=False)
     pinned = db.Column(db.Boolean, unique=False, nullable=False, default=False)
 
+class MarketSnapshot(db.Model):
+    """
+    Timestamped record of data fetched from an external provider.
+
+    Two jobs at once:
+      1. Cache — avoid refetching (and re-rate-limiting) the same data.
+      2. Evidence — a decision can cite the exact snapshot it was based on via
+         AuditLog.snapshot_ref, so it stays reproducible even after the upstream
+         data changes.
+
+    Rows are never mutated; a refresh inserts a new row and the newest wins.
+    """
+    __tablename__ = "market_snapshot"
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    ticker = db.Column(db.String(32), nullable=True, index=True)  # NULL for universe-wide
+    kind = db.Column(db.String(32), nullable=False, index=True)   # recs|risk|financials|price|sentiment
+    payload = db.Column(JSONB, nullable=False)
+    fetched_at = db.Column(
+        db.DateTime(timezone=True), nullable=False,
+        server_default=db.func.now(), index=True
+    )
+
 class AuditLog(db.Model):
     """
     Append-only ledger of every state-changing action.
@@ -161,6 +183,73 @@ def require_auth(view):
         return view(*args, **kwargs)
 
     return wrapper
+
+# ----------------------------------------------- snapshot cache helpers -------------------------------------------------------------------------------
+
+# Default freshness per kind of data. Prices move constantly; financial
+# statements and analyst consensus change slowly.
+SNAPSHOT_TTL_SECONDS = {
+    "recs": 24 * 3600,
+    "financials": 24 * 3600,
+    "risk": 6 * 3600,
+    "price": 3600,
+    "sentiment": 3600,
+}
+
+def get_snapshot(kind, ticker=None, max_age_seconds=None):
+    """
+    Return the newest snapshot for (kind, ticker) if it is still fresh.
+
+    Returns (payload, snapshot_id) on a hit, or (None, None) on a miss.
+    """
+    if max_age_seconds is None:
+        max_age_seconds = SNAPSHOT_TTL_SECONDS.get(kind, 3600)
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)
+    row = (
+        MarketSnapshot.query
+        .filter(
+            MarketSnapshot.kind == kind,
+            MarketSnapshot.ticker == ticker,
+            MarketSnapshot.fetched_at >= cutoff,
+        )
+        .order_by(MarketSnapshot.fetched_at.desc())
+        .first()
+    )
+    if row is None:
+        return None, None
+    return row.payload, str(row.id)
+
+def json_safe(value):
+    """
+    Convert pandas/numpy values into plain JSON types.
+
+    yfinance returns numpy scalars, Timestamps and NaN, none of which
+    json.dumps (and therefore JSONB) accepts.
+    """
+    if isinstance(value, dict):
+        return {str(k): json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    if isinstance(value, (np.integer,)):
+        return int(value)
+    if isinstance(value, (np.floating, float)):
+        f = float(value)
+        return None if (np.isnan(f) or np.isinf(f)) else f  # NaN/Inf are not valid JSON
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, (datetime, date, pd.Timestamp)):
+        return str(value)
+    if value is None or isinstance(value, (str, int, bool)):
+        return value
+    return str(value)  # last resort so a snapshot never fails to serialize
+
+def put_snapshot(kind, payload, ticker=None):
+    """Insert a new snapshot and return its id (committed by the caller)."""
+    row = MarketSnapshot(kind=kind, ticker=ticker, payload=json_safe(payload))
+    db.session.add(row)
+    db.session.flush()  # populate row.id without ending the transaction
+    return str(row.id)
 
 def write_audit(action, entity=None, payload=None, actor_email=None, snapshot_ref=None):
     """
@@ -273,7 +362,16 @@ def fetch_specific_stock_data():
     if "ticker" not in request_data:
         return jsonify({"error": "Missing 'ticker' in request"}), 400
 
-    stock = yf.Ticker(request_data["ticker"])
+    ticker_symbol = (request_data["ticker"] or "").upper()
+    if not ticker_symbol:
+        return jsonify({"error": "Missing 'ticker' in request"}), 400
+
+    # Financial statements change quarterly; serve a fresh snapshot when present.
+    cached, _ = get_snapshot("financials", ticker=ticker_symbol)
+    if cached is not None:
+        return jsonify(cached), 200
+
+    stock = yf.Ticker(ticker_symbol)
 
     # Fetch financials
     financials = stock.financials
@@ -297,93 +395,135 @@ def fetch_specific_stock_data():
         "latest_price": stock.history(period="1d")["Close"].iloc[-1]
     }
 
-    
-    # store this data in csv for better retrieval
-    storeDataInCSV(financials_dict, additional_data, request_data['ticker'])
 
-    return jsonify({
+    # store this data in csv for better retrieval
+    storeDataInCSV(financials_dict, additional_data, ticker_symbol)
+
+    result = {
         "financials": financials_dict,
         "additional_data": additional_data
-    }), 200
+    }
+    put_snapshot("financials", result, ticker=ticker_symbol)
+    db.session.commit()
 
-# use this route to fetch 30 recommendations of stock to buyimport time
+    return jsonify(result), 200
+
+def score_recommendations(stock_consideration):
+    """
+    Turn a yfinance recommendations frame into {"rating", "indicator"}.
+
+    Returns None when the data is unusable, so callers can skip the ticker.
+    """
+    if stock_consideration is None or stock_consideration.empty:
+        return None
+
+    required_columns = ['strongBuy', 'buy', 'hold', 'sell', 'strongSell']
+    if any(col not in stock_consideration.columns for col in required_columns):
+        return None
+
+    # Row 0 is the current period ("0m"); later rows are prior months.
+    latest = stock_consideration.iloc[0]
+    counts = {col: float(latest.get(col) or 0) for col in required_columns}
+    total = sum(counts.values())
+
+    # No analyst coverage at all: a zero total would otherwise produce NaN
+    # proportions and corrupt the ranking below.
+    if total <= 0:
+        return None
+
+    scores = {
+        'buy': (counts['strongBuy'] + counts['buy']) / total,
+        'hold': counts['hold'] / total,
+        'sell': (counts['strongSell'] + counts['sell']) / total,
+    }
+    decision = max(scores, key=scores.get)
+    return {"rating": decision, "indicator": scores[decision], "analyst_count": int(total)}
+
+# use this route to fetch the top stock recommendations
 @app.route('/fetch-recs', methods=['POST'])
 @require_auth
 def fetchRecommendations():
-    rec_arr = {}  # Stores calculated buy/hold/sell values
-    stock_rec = {}  # Stores final stock recommendations
     email_in = g.user_email  # identity comes from the verified token, not the body
+    request_data = request.get_json(silent=True) or {}
+    force_refresh = bool(request_data.get("refresh"))
 
-    # Add pinned stocks to the list
     pinnedStocks = fetchPinnedStocks(email_in)
-    combined_recs = sp500_tickers + pinnedStocks
     num_of_pins = len(pinnedStocks)
-    
-    remove_duplicates = set(combined_recs)
-    unique_list_recs = list(remove_duplicates)
-    
-    for stock in unique_list_recs:
-        ticker = yf.Ticker(stock)
-        
-        # Add a small delay to prevent API rate limiting
-        time.sleep(0.5)  # Pause for 0.5 sec before fetching next stock
+    top_n = 30 + num_of_pins
 
-        stock_consideration = ticker.get_recommendations()
+    # ---- 1. Try the cached universe-wide snapshot -------------------------------
+    # Scoring the whole universe takes >60s of throttled yfinance calls, so the
+    # result is snapshotted and reused. The snapshot is user-independent; each
+    # user's pins are merged in afterwards.
+    scored = None
+    snapshot_id = None
+    if not force_refresh:
+        scored, snapshot_id = get_snapshot("recs")
 
-        # Ensure data exists and is not empty
-        if stock_consideration is None or stock_consideration.empty:
-            print(f"Skipping {stock}: No recommendation data available.")
-            continue
+    # ---- 2. On a miss, fetch and score -----------------------------------------
+    if scored is None:
+        scored = {}
+        rate_limited = False
+        universe = sorted(set(sp500_tickers) | set(pinnedStocks))
 
-        # Check if required columns exist before accessing them
-        required_columns = ['strongBuy', 'buy', 'hold', 'sell', 'strongSell']
-        missing_columns = [col for col in required_columns if col not in stock_consideration.columns]
+        for stock in universe:
+            try:
+                # Throttle to stay under yfinance's rate limits.
+                time.sleep(0.5)
+                result = score_recommendations(yf.Ticker(stock).get_recommendations())
+            except Exception as exc:
+                # A single bad ticker must not fail the whole request. Rate
+                # limiting affects everything that follows, so stop early.
+                if "Rate limit" in str(exc) or "Too Many Requests" in str(exc):
+                    print(f"Rate limited while fetching {stock}; stopping early.")
+                    rate_limited = True
+                    break
+                print(f"Skipping {stock}: {exc}")
+                continue
 
-        if missing_columns:
-            print(f"Skipping {stock}: Missing columns {missing_columns}")
-            continue  # Skip this stock if required columns are missing
+            if result is not None:
+                scored[stock] = result
 
-        # Compute sum of recommendations
-        stock_consideration['sum_col'] = (
-            stock_consideration['strongBuy'].fillna(0) + 
-            stock_consideration['buy'].fillna(0) + 
-            stock_consideration['hold'].fillna(0) + 
-            stock_consideration['sell'].fillna(0) + 
-            stock_consideration['strongSell'].fillna(0)
-        )
+        if not scored:
+            # Nothing usable. Fall back to a stale snapshot rather than showing
+            # the user an empty dashboard.
+            stale, stale_id = get_snapshot("recs", max_age_seconds=30 * 24 * 3600)
+            if stale:
+                scored, snapshot_id = stale, stale_id
+            else:
+                status = 429 if rate_limited else 503
+                return jsonify({
+                    "error": "Could not retrieve stock recommendations at this moment",
+                    "reason": "rate_limited" if rate_limited else "no_data",
+                }), status
+        else:
+            snapshot_id = put_snapshot("recs", scored)
+            write_audit(
+                "recs_snapshot",
+                entity=f"{len(scored)} tickers",
+                payload={"ticker_count": len(scored), "partial": rate_limited},
+                snapshot_ref=snapshot_id,
+            )
+            db.session.commit()
 
-        # Select latest recommendation row
-        latest_rec = stock_consideration.iloc[0]
-        sumVal = latest_rec.get('sum_col', 1)  # Avoid division by zero
+    # ---- 3. Rank and return the top N ------------------------------------------
+    # NOTE: rank over a copy. The previous implementation popped from the source
+    # dict and then tested that (now-drained) dict for emptiness, which returned
+    # a 400 error even when recommendations had been found successfully.
+    ranked = sorted(scored.items(), key=lambda kv: kv[1]["indicator"], reverse=True)
 
-        # Calculate buy, hold, sell evaluations
-        rec_arr = {
-            'buy': (latest_rec.get('strongBuy', 0) + latest_rec.get('buy', 0)) / sumVal,
-            'hold': latest_rec.get('hold', 0) / sumVal,
-            'sell': (latest_rec.get('strongSell', 0) + latest_rec.get('sell', 0)) / sumVal
-        }
+    # Returned as a list, not a dict: jsonify sorts object keys alphabetically,
+    # which would silently discard the ranking computed above.
+    top = [
+        {"ticker": ticker, **data}
+        for ticker, data in ranked[:top_n]
+    ]
 
-        # Make decision based on highest rating
-        decision = max(rec_arr, key=rec_arr.get)
-
-        # Store structured data
-        stock_rec[stock] = {
-            "rating": decision,
-            "indicator": rec_arr[decision]
-        }   
-
-    stock_recommendations_to_send = {}  # Dictionary of recommendations to send 
-    for _ in range(30+num_of_pins):
-        if not stock_rec:  # Ensure stock_rec is not empty
-            break
-        max_stock = max(stock_rec, key=lambda x: stock_rec[x]["indicator"])
-        stock_recommendations_to_send[max_stock] = stock_rec.pop(max_stock)
-
-    # Early return if no stock recommendations were found
-    if not stock_rec:
-        return jsonify({"message": "Could not retrieve stock recommendations at this moment"}), 400
-
-    return jsonify(stock_recommendations_to_send), 200
+    return jsonify({
+        "recommendations": top,
+        "snapshot_ref": snapshot_id,
+        "cached": not force_refresh and bool(snapshot_id),
+    }), 200
 
 #use this function to retrieve the users' pinned stocks
 def fetchPinnedStocks(email: str) -> list: # return a list of tickers
@@ -413,35 +553,60 @@ def getRiskAnalysis():
     if not isinstance(request_data, dict) or 'stock' not in request_data:
         return jsonify({"error": "Invalid request format. Expected {'stock': 'TICKER'}"}), 400
     
-    stock = request_data['stock']
-    ticker = yf.Ticker(stock)
-    #fetch the data from 2020-01-01 to present day
-    today = date.today()
-    data = yf.download(stock, start="2020-01-01", end=today) #get the data from 2020 start to present 
-    
+    stock = (request_data['stock'] or "").upper()
+    if not stock:
+        return jsonify({"error": "Invalid request format. Expected {'stock': 'TICKER'}"}), 400
+
+    # Serve a fresh snapshot if we have one; volatility over 5+ years of closes
+    # barely moves intraday, so this is a cheap win.
+    cached, _ = get_snapshot("risk", ticker=stock)
+    if cached is not None:
+        return jsonify(cached), 200
+
+    try:
+        ticker = yf.Ticker(stock)
+        #fetch the data from 2020-01-01 to present day
+        today = date.today()
+        data = yf.download(stock, start="2020-01-01", end=today) #get the data from 2020 start to present
+    except Exception as e:
+        stale, _ = get_snapshot("risk", ticker=stock, max_age_seconds=30 * 24 * 3600)
+        if stale is not None:
+            return jsonify(stale), 200
+        status = 429 if ("Rate limit" in str(e) or "Too Many Requests" in str(e)) else 500
+        return jsonify({"error": str(e)}), status
+
     if data.empty:
         return jsonify({"error": "Invalid stock ticker or no data available for the given period"}), 400
 
     if 'Close' in data.columns:
-        data['Returns'] = data['Close'].pct_change() #"By what percentage did the stock price change compared to the previous day?"
+        closes = data['Close']
+        # yfinance may return MultiIndex columns for a single ticker, which would
+        # make the result a Series rather than a scalar. Squeeze to one column.
+        if hasattr(closes, "columns"):
+            closes = closes.iloc[:, 0]
+
+        returns = closes.pct_change() #"By what percentage did the stock price change compared to the previous day?"
 
         # calculate voltaility by averaging the daily percent change in closing price
-        volatility = data['Returns'].std() * (252**0.5)  # Annualized volatility
-        risk_analysis_to_send['volatility'] = volatility 
-        
+        volatility = float(returns.std() * (252**0.5))  # Annualized volatility
+        risk_analysis_to_send['volatility'] = volatility
+
         # get important ratios
-        info = ticker.info
-        debt_to_equity = info.get('debtToEquity', "") # 61.175 - AMZN
-        current_ratio = info.get('currentRatio', "")# 1.089 - AMZN
-        quick_ratio = info.get('quickRatio', "") #0.827 - AMZN
-        latest_price = ticker.history(period="1d")['Close'].iloc[-1]
-        
-        #send to frontend
-        risk_analysis_to_send['debtToEquity'] = debt_to_equity 
-        risk_analysis_to_send['currentRatio'] = current_ratio 
-        risk_analysis_to_send['quickRatio'] = quick_ratio 
-        risk_analysis_to_send['latest_price'] = latest_price
-        
+        try:
+            info = ticker.info
+            risk_analysis_to_send['debtToEquity'] = info.get('debtToEquity', "")  # 61.175 - AMZN
+            risk_analysis_to_send['currentRatio'] = info.get('currentRatio', "")  # 1.089 - AMZN
+            risk_analysis_to_send['quickRatio'] = info.get('quickRatio', "")      # 0.827 - AMZN
+            risk_analysis_to_send['latest_price'] = float(closes.iloc[-1])
+        except Exception as e:
+            # Volatility is the important number; ship it even if the ratio
+            # lookup gets rate limited.
+            print(f"Ratio lookup failed for {stock}: {e}")
+            risk_analysis_to_send.setdefault('latest_price', float(closes.iloc[-1]))
+
+        put_snapshot("risk", risk_analysis_to_send, ticker=stock)
+        db.session.commit()
+
     # print(risk_analysis_to_send)
     return jsonify(risk_analysis_to_send), 200
 
@@ -759,6 +924,11 @@ def fetchPriceChartData():
     if not stock:
         return jsonify({"error": "Stock ticker is required"}), 400
 
+    # Serve from the snapshot store when fresh (see SNAPSHOT_TTL_SECONDS).
+    cached, _ = get_snapshot("price", ticker=stock)
+    if cached is not None:
+        return jsonify(cached), 200
+
     try:
         stock_data = yf.Ticker(stock)
         hist = stock_data.history(period="1y")  # Fetch 1 year of historical data
@@ -769,9 +939,17 @@ def fetchPriceChartData():
         # Format data for frontend
         data = [{"date": str(index.date()), "price": row["Close"]} for index, row in hist.iterrows()]
 
+        put_snapshot("price", data, ticker=stock)
+        db.session.commit()
         return jsonify(data)
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        db.session.rollback()
+        # Fall back to stale data rather than breaking the chart entirely.
+        stale, _ = get_snapshot("price", ticker=stock, max_age_seconds=30 * 24 * 3600)
+        if stale is not None:
+            return jsonify(stale), 200
+        status = 429 if ("Rate limit" in str(e) or "Too Many Requests" in str(e)) else 500
+        return jsonify({"error": str(e)}), status
 
 
 # --------------------------------------------------------------------------- helper functions -------------------------------------------------------------------------

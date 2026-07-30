@@ -169,3 +169,16 @@
     transform: scale(1.05);
 }
 
+
+/* Provenance line: which market-data snapshot these ratings came from.
+   Uses a monospaced face so the snapshot id reads as an identifier. */
+.recommend-provenance {
+    margin: -4px 0 8px;
+    text-align: center;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #8A929E;
+    font-family: ui-monospace, "IBM Plex Mono", "Roboto Mono", monospace;
+    cursor: help;
+}

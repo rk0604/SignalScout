@@ -17,8 +17,10 @@ export function Recommendations() {
   const { setPinnedStocks } = useContext(StockContext); //access the context of the pinned stocks
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [selectedStock, setSelectedStock] = useState("");
-  const [recommendations, setRecommendations] = useState([]); 
-  const [isLoading, setIsLoading] = useState(false); // track the loading state 
+  const [recommendations, setRecommendations] = useState([]); // ordered, highest indicator first
+  const [isLoading, setIsLoading] = useState(false); // track the loading state
+  const [snapshotRef, setSnapshotRef] = useState(null); // id of the market data these ratings came from
+  const [isCached, setIsCached] = useState(false); // whether the result was served from a snapshot
   const [holdingsUpdate, setHoldingsUpdate] = useState({ // used when the user inputs their holding of a stock
     ticker:'',
     price:'',
@@ -36,19 +38,23 @@ export function Recommendations() {
       const response = await api.post('/fetch-recs', {});
 
       if(response.status === 200){
-        // console.log(response.data);
-        setRecommendations(response.data)
+        // The backend returns {recommendations, snapshot_ref, cached}; snapshot_ref
+        // identifies the exact market data these ratings were derived from.
+        setRecommendations(response.data.recommendations || [])
+        setSnapshotRef(response.data.snapshot_ref || null)
+        setIsCached(Boolean(response.data.cached))
       }
 
     }catch(err){
       const {response} = err;
       if(response){
         switch(response.status){
-          case 400:
-            console.log('could not fetch the ');
+          case 429:
+            console.warn('rate limited by the market data provider; try again shortly');
+            alert('Market data provider is rate limiting us. Try again in a few minutes.');
             break;
-          case 404:
-            console.log('no sentiment analysis found');
+          case 503:
+            console.warn('no recommendation data available right now');
             break;
           default:
             console.log('internal server error')
@@ -123,23 +129,25 @@ export function Recommendations() {
   return (
     <div className="recommend-card">
       <h3 className="recommend-title" onClick={()=>{fetchRecs()}} >Recommendations</h3>
+      {snapshotRef && (
+        <p className="recommend-provenance ibm-plex-sans-medium" title={`Market data snapshot ${snapshotRef}`}>
+          {isCached ? 'cached snapshot' : 'fresh snapshot'} · {snapshotRef.slice(0, 8)}
+        </p>
+      )}
       <div className="recommend-grid">
-      {recommendations ? (
-          isLoading === false ? (
-            Object.entries(recommendations).map(([stock, data]) => (
-              <RecContainer 
-                key={stock} 
-                stock={stock} 
-                rating={data.rating} 
-                indicator={data.indicator}
-                onClick={chosenStock}
-              />
-            ))
-          ) : (
-            <h3 className="loading-text">Loading stock recommendations</h3>
-          )
-        ) : (
+      {isLoading ? (
           <h3 className="loading-text">Loading stock recommendations</h3>
+        ) : (
+          // An ordered array, so the backend's ranking by indicator is preserved.
+          recommendations.map((rec) => (
+            <RecContainer
+              key={rec.ticker}
+              stock={rec.ticker}
+              rating={rec.rating}
+              indicator={rec.indicator}
+              onClick={chosenStock}
+            />
+          ))
         )}
         <Modal 
           isOpen={modalIsOpen}
