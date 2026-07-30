@@ -31,6 +31,13 @@ CORS(app, resources={r"/*": {"origins": FRONTEND_URL}}, supports_credentials=Tru
 # ------------------------------------------------------- Configure PostgreSQL database URI -------------------------------------------------------------------
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Neon (and other serverless Postgres) drop idle connections when the compute
+# scales to zero. pool_pre_ping tests a connection before use and transparently
+# reconnects; pool_recycle avoids handing out connections older than 5 minutes.
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+}
 
 if not app.config['SQLALCHEMY_DATABASE_URI']:
     raise ValueError("DATABASE_URL is not set or loaded correctly.")
