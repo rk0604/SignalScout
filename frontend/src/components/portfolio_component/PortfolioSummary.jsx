@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import PropTypes from "prop-types";
 import api, { isLoggedIn } from "../../api/client";
+import { subscribeQuote } from "../../api/realtime";
 import "./portfolio.css";
 
 /*
@@ -87,6 +88,53 @@ export default function PortfolioSummary() {
     const timer = setTimeout(fetchSummary, 400);
     return () => clearTimeout(timer);
   }, [fetchSummary]);
+
+  // Tickers currently held, used to drive the realtime subscription.
+  const tickers = useMemo(
+    () => (data?.positions || []).map((p) => p.ticker),
+    [data]
+  );
+
+  // Live quotes: patch prices in place and recompute the affected numbers,
+  // so the table updates without a full refetch.
+  useEffect(() => {
+    if (!tickers.length) return;
+
+    const applyQuote = (q) =>
+      setData((prev) => {
+        if (!prev) return prev;
+        const positions = prev.positions.map((p) => {
+          if (p.ticker !== q.ticker || q.price == null) return p;
+          const market_value = q.price * p.num_shares;
+          const pl_abs = market_value - p.cost_basis;
+          return {
+            ...p,
+            last_quote: q.price,
+            market_value,
+            pl_abs,
+            pl_pct: p.cost_basis ? (pl_abs / p.cost_basis) * 100 : null,
+            quote_available: true,
+            live: true,
+          };
+        });
+
+        const total_value = positions.reduce((s, p) => s + p.market_value, 0);
+        const total_return_abs = total_value - prev.total_cost;
+        return {
+          ...prev,
+          positions: positions.map((p) => ({
+            ...p,
+            weight: total_value ? (p.market_value / total_value) * 100 : 0,
+          })),
+          total_value,
+          total_return_abs,
+          total_return_pct: prev.total_cost ? (total_return_abs / prev.total_cost) * 100 : null,
+        };
+      });
+
+    const unsubscribers = tickers.map((t) => subscribeQuote(t, applyQuote));
+    return () => unsubscribers.forEach((fn) => fn());
+  }, [tickers]);
 
   if (isLoading && !data) {
     return (

@@ -10,6 +10,12 @@ Flask-Cors==5.0.0
 # Linux-only wheel; on Windows this is skipped so local installs still work.
 gunicorn==23.0.0; sys_platform != "win32"
 
+# Realtime price push. Needs a host that holds long-lived connections
+# (Render does; serverless platforms do not).
+Flask-SocketIO==5.4.1
+python-socketio==5.11.4
+simple-websocket==1.1.0
+
 # Database (SQLAlchemy ORM + Postgres driver)
 Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.36

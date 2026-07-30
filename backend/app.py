@@ -21,6 +21,8 @@ from textblob import TextBlob
 import jwt
 import re
 from functools import wraps
+from threading import Lock
+from flask_socketio import SocketIO, emit, join_room, leave_room
 import backtesting
 
 app = Flask(__name__)
@@ -75,6 +77,10 @@ if not app.config['SQLALCHEMY_DATABASE_URI']:
     raise ValueError("DATABASE_URL is not set or loaded correctly.")
 
 db = SQLAlchemy(app)
+
+# Realtime transport. Same origin allowlist as the HTTP API so the socket is
+# not a wider door than the REST surface.
+socketio = SocketIO(app, cors_allowed_origins=ALLOWED_ORIGINS, async_mode="threading")
 
 class User(db.Model):
     __tablename__ = "user_data"
@@ -1615,6 +1621,99 @@ sp500_tickers = [
 
 
 # ------------------------------------------------------ run python server ------------------------------------------------------
+# ---------------------------------------------- Realtime quotes (WebSocket) ----------------------------------------------------------------------
+
+# Rooms are keyed by ticker; a client joins the rooms for the symbols on screen.
+_quote_thread = None
+_quote_thread_lock = Lock()
+QUOTE_POLL_SECONDS = int(os.getenv("QUOTE_POLL_SECONDS", "30"))
+
+def _authenticate_socket(auth):
+    """
+    Resolve a socket connection to a user via the same JWT as the HTTP API.
+
+    Without this the socket would be an unauthenticated side channel around
+    the auth added in Phase 1.
+    """
+    token = None
+    if isinstance(auth, dict):
+        token = auth.get("token")
+    if not token:
+        header = request.headers.get("Authorization", "")
+        if header.startswith("Bearer "):
+            token = header.split(" ", 1)[1].strip()
+    if not token:
+        return None
+    try:
+        claims = jwt.decode(token, SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.InvalidTokenError:
+        return None
+    return (claims.get("sub") or "").lower() or None
+
+def _broadcast_quotes():
+    """
+    Background loop: poll subscribed tickers and emit changed quotes.
+
+    yfinance has no streaming feed, so this is polling on an interval rather
+    than true tick data. A real-time feed (Finnhub, Polygon) would replace the
+    body of this loop without changing the client contract.
+    """
+    while True:
+        socketio.sleep(QUOTE_POLL_SECONDS)
+        try:
+            with app.app_context():
+                rooms = socketio.server.manager.rooms.get("/", {})
+                # Room names that look like tickers are the subscriptions;
+                # every client also sits in a room named after its own sid.
+                tickers = [r for r in rooms.keys() if r and r.isupper()]
+                for ticker in tickers:
+                    last, prev = get_quote_pair(ticker)
+                    if last is None:
+                        continue
+                    change = (last - prev) if prev is not None else None
+                    socketio.emit("quote", {
+                        "ticker": ticker,
+                        "price": last,
+                        "prev_close": prev,
+                        "change_abs": change,
+                        "change_pct": (change / prev * 100) if (change is not None and prev) else None,
+                        "at": datetime.now(timezone.utc).isoformat(),
+                    }, room=ticker)
+                db.session.commit()  # persist snapshots created while polling
+        except Exception as e:
+            print(f"Quote broadcast error: {e}")
+
+@socketio.on("connect")
+def socket_connect(auth):
+    email = _authenticate_socket(auth)
+    if not email:
+        return False  # refuse the connection
+
+    global _quote_thread
+    with _quote_thread_lock:
+        if _quote_thread is None:
+            _quote_thread = socketio.start_background_task(_broadcast_quotes)
+
+    emit("connected", {"email": email, "poll_seconds": QUOTE_POLL_SECONDS})
+    return True
+
+@socketio.on("subscribe")
+def socket_subscribe(data):
+    """Join the rooms for the tickers a client currently has on screen."""
+    tickers = (data or {}).get("tickers") or []
+    joined = []
+    for t in tickers[:25]:  # cap so one client cannot subscribe to everything
+        ticker = str(t).upper().strip()
+        if ticker:
+            join_room(ticker)
+            joined.append(ticker)
+    emit("subscribed", {"tickers": joined})
+
+@socketio.on("unsubscribe")
+def socket_unsubscribe(data):
+    for t in (data or {}).get("tickers") or []:
+        leave_room(str(t).upper().strip())
+
 @app.cli.command("init-db")
 def init_db_command():
     """
@@ -1637,6 +1736,14 @@ if __name__ == "__main__":
     # database (e.g. a new Neon project) is initialized on first boot.
     with app.app_context():
         db.create_all()
+    # Served through SocketIO so websocket upgrades are handled; it falls back
+    # to the normal WSGI server for plain HTTP requests.
     # Bind configuration comes from the environment so the same entrypoint works
     # locally and on a host that injects PORT.
-    app.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "5000")), debug=DEBUG)
+    socketio.run(
+        app,
+        host=os.getenv("HOST", "127.0.0.1"),
+        port=int(os.getenv("PORT", "5000")),
+        debug=DEBUG,
+        allow_unsafe_werkzeug=True,  # dev server only; gunicorn is used in prod
+    )

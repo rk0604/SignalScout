@@ -17,6 +17,12 @@ export const setSession = (token, email) => {
 export const clearSession = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(EMAIL_KEY);
+  // Drop the realtime socket too, otherwise an authenticated connection
+  // outlives the session that created it. Imported lazily to avoid a cycle
+  // (realtime.js reads getToken from this module).
+  import("./realtime")
+    .then((m) => m.disconnectRealtime())
+    .catch(() => {});
 };
 
 export const isLoggedIn = () => Boolean(getToken());

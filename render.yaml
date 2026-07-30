@@ -13,7 +13,11 @@ services:
     buildCommand: pip install -r requirements.txt
     # Tables are created here because the __main__ block never runs under gunicorn.
     preDeployCommand: flask --app app init-db
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    # Socket.IO keeps per-connection state in the worker that accepted it.
+    # With more than one worker and no shared message queue, a client's polling
+    # requests can land on a worker that has never seen it, and the connection
+    # breaks. Stay on a single threaded worker until a Redis queue is added.
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --worker-class gthread --workers 1 --threads 8 --timeout 120
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
@@ -29,6 +33,10 @@ services:
         sync: false
       - key: JWT_EXP_HOURS
         value: "24"
+      # Seconds between realtime quote polls (yfinance has no streaming feed).
+      # Lower values hit provider rate limits faster.
+      - key: QUOTE_POLL_SECONDS
+        value: "30"
       # Never enable Flask debug in production: the Werkzeug debugger allows RCE.
       - key: FLASK_DEBUG
         value: "0"
