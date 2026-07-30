@@ -6,6 +6,10 @@
 Flask==3.1.0
 Flask-Cors==5.0.0
 
+# WSGI server for production (not used by the local dev server).
+# Linux-only wheel; on Windows this is skipped so local installs still work.
+gunicorn==23.0.0; sys_platform != "win32"
+
 # Database (SQLAlchemy ORM + Postgres driver)
 Flask-SQLAlchemy==3.1.1
 SQLAlchemy==2.0.36

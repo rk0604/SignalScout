@@ -22,10 +22,18 @@ import jwt
 from functools import wraps
 
 app = Flask(__name__)
-app.config["DEBUG"] = True  # Enables hot reloading
 load_dotenv()
-# path and env variable load
+
+# Debug must default to OFF: Werkzeug's debugger allows arbitrary code execution,
+# so it must never be enabled on a publicly reachable deployment. Opt in locally
+# with FLASK_DEBUG=1.
+DEBUG = os.getenv("FLASK_DEBUG", "").lower() in ("1", "true", "yes")
+app.config["DEBUG"] = DEBUG
+
+# Allowed browser origins for CORS. Accepts a comma-separated list so local dev
+# and the deployed frontend can be permitted at the same time.
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+ALLOWED_ORIGINS = [o.strip() for o in FRONTEND_URL.split(",") if o.strip()]
 
 # JWT signing secret. Fail loudly rather than silently signing with a default,
 # which would let anyone forge a token.
@@ -39,13 +47,19 @@ JWT_ALGORITHM = "HS256"
 # Authorization must be an allowed request header so the browser will send the bearer token.
 CORS(
     app,
-    resources={r"/*": {"origins": FRONTEND_URL}},
+    resources={r"/*": {"origins": ALLOWED_ORIGINS}},
     supports_credentials=True,
     allow_headers=["Content-Type", "Authorization", "Accept"],
 )
 
 # ------------------------------------------------------- Configure PostgreSQL database URI -------------------------------------------------------------------
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+DATABASE_URL = os.getenv('DATABASE_URL', '')
+# Several hosts (and Neon's copy button) hand out "postgres://", a scheme
+# SQLAlchemy 2.x no longer recognises. Normalise it so deploys don't fail here.
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Neon (and other serverless Postgres) drop idle connections when the compute
 # scales to zero. pool_pre_ping tests a connection before use and transparently
@@ -886,9 +900,28 @@ sp500_tickers = [
 
 
 # ------------------------------------------------------ run python server ------------------------------------------------------
+@app.cli.command("init-db")
+def init_db_command():
+    """
+    Create any missing tables (idempotent).
+
+    Under gunicorn the module is imported rather than executed, so the
+    __main__ block below never runs. Production deploys call this instead:
+        flask --app app init-db
+    """
+    db.create_all()
+    print("Database initialized.")
+
+@app.route("/health", methods=["GET"])
+def health():
+    """Unauthenticated liveness probe for the host's health checks."""
+    return jsonify({"status": "ok"}), 200
+
 if __name__ == "__main__":
     # Create tables if they don't exist yet (safe/idempotent) so a fresh
     # database (e.g. a new Neon project) is initialized on first boot.
     with app.app_context():
         db.create_all()
-    app.run(debug=True)
+    # Bind configuration comes from the environment so the same entrypoint works
+    # locally and on a host that injects PORT.
+    app.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "5000")), debug=DEBUG)
