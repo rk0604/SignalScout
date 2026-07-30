@@ -140,7 +140,7 @@ into the phases below rather than fixed standalone.
 | 1 | Auth (JWT) + audit ledger | — | M | `DONE` |
 | 2 | Deploy (Render + Vercel + Neon) | 1 | M | `IN PROGRESS` |
 | 3 | Provenance & caching layer | 1 | M | `DONE` |
-| 4 | Signals & sentiment (+ finish stubbed modal) | 1, 3 | M | `TODO` |
+| 4 | Signals & sentiment (+ finish stubbed modal) | 1, 3 | M | `DONE` |
 | 5 | Portfolio analytics dashboard | 3 | M | `TODO` |
 | 6 | Backtesting & strategy performance | 3, 4 | M | `TODO` |
 | 7 | Realtime prices (WebSocket) | 2 | L | `TODO` |
@@ -230,7 +230,20 @@ id + `fetched_at`.
 
 ---
 
-## Phase 4 — Signals, sentiment, stubbed modal  `TODO`
+## Phase 4 — Signals, sentiment, stubbed modal  `DONE`
+
+> Shipped on `dev`. Notes for whoever picks this up next:
+> - **Sentiment is lexicon-based and approximate.** Most real headlines are worded
+>   factually and score neutral; TextBlob knows no finance vocabulary, hence the
+>   overlay in `FINANCE_SENTIMENT_TERMS`. Do not read precision into the number.
+>   A finance-tuned model (e.g. FinBERT) is the real upgrade.
+> - **The news source is fragile by nature.** yfinance's API is primary; the HTML
+>   scrape behind it will break again whenever Yahoo changes markup.
+> - **The live chart path is unverified against real data** — yfinance was rate
+>   limiting throughout. Crossover logic is verified on synthetic series (golden
+>   and death cross) and the route is verified serving a snapshot.
+> - MA20/50 is a lagging indicator; treat signals as illustrative until Phase 6
+>   backtests them.
 
 Three low-risk, high-visibility wins that share the stock modal.
 
