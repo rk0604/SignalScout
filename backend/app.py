@@ -21,6 +21,7 @@ from textblob import TextBlob
 import jwt
 import re
 from functools import wraps
+import backtesting
 
 app = Flask(__name__)
 load_dotenv()
@@ -115,6 +116,31 @@ class MarketSnapshot(db.Model):
     fetched_at = db.Column(
         db.DateTime(timezone=True), nullable=False,
         server_default=db.func.now(), index=True
+    )
+
+class BacktestRun(db.Model):
+    """
+    Immutable record of one backtest.
+
+    Same discipline as AuditLog: a run is evidence. It stores the parameters,
+    the resulting metrics, the equity curve and the snapshots the prices came
+    from, so a result can be reproduced and a later agent decision can cite the
+    backtest that justified its policy.
+    """
+    __tablename__ = "backtest_run"
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_email = db.Column(db.String(120), nullable=True, index=True)
+    strategy = db.Column(db.String(64), nullable=False)
+    params = db.Column(JSONB, nullable=True)
+    universe = db.Column(JSONB, nullable=True)      # tickers included
+    start_date = db.Column(db.String(10), nullable=True)
+    end_date = db.Column(db.String(10), nullable=True)
+    metrics = db.Column(JSONB, nullable=True)       # return, Sharpe, drawdown, ...
+    equity_curve = db.Column(JSONB, nullable=True)  # [{date, equity, benchmark}]
+    trades = db.Column(JSONB, nullable=True)
+    snapshot_refs = db.Column(JSONB, nullable=True) # market_snapshot ids used
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, server_default=db.func.now()
     )
 
 class AuditLog(db.Model):
@@ -917,6 +943,146 @@ def get_holdings():
     db.session.commit()  # persist any quote snapshots created above
     # print('holdings list: ', holdings_list)
     return jsonify({"holdings": holdings_list}), 200
+
+# ---------------------------------------------- Backtesting --------------------------------------------------------------------------------------
+
+def load_closes_for_backtest(ticker, start=None, end=None):
+    """
+    Closing prices for a backtest, preferring stored snapshots.
+
+    Returns (Series, snapshot_refs). Reusing a snapshot means the run cites the
+    exact prices it saw, which is what makes it reproducible later.
+    """
+    snapshot_refs = []
+
+    snap, snap_id = get_snapshot("price", ticker=ticker, max_age_seconds=24 * 3600)
+    if isinstance(snap, dict) and snap.get("series"):
+        rows = snap["series"]
+        idx = pd.to_datetime([r["date"] for r in rows])
+        closes = pd.Series([r["price"] for r in rows], index=idx, dtype=float)
+        snapshot_refs.append(snap_id)
+    else:
+        # No usable snapshot: fetch and store one so the next run is reproducible.
+        hist = yf.download(ticker, start=start or "2020-01-01", end=end or date.today(),
+                           progress=False)
+        if hist.empty:
+            raise ValueError(f"No price history available for {ticker}")
+        col = hist["Close"]
+        if hasattr(col, "columns"):      # yfinance may return MultiIndex columns
+            col = col.iloc[:, 0]
+        closes = col.astype(float)
+        series = [{"date": str(i.date()), "price": float(v)} for i, v in closes.items()]
+        snapshot_refs.append(
+            put_snapshot("price_history", {"ticker": ticker, "series": series}, ticker=ticker)
+        )
+
+    if start:
+        closes = closes[closes.index >= pd.to_datetime(start)]
+    if end:
+        closes = closes[closes.index <= pd.to_datetime(end)]
+
+    return closes, snapshot_refs
+
+@app.route('/backtest', methods=['POST'])
+@require_auth
+def run_backtest_route():
+    """
+    Backtest a strategy over one ticker and persist the run.
+
+    The run is immutable evidence: parameters, metrics, equity curve and the
+    snapshots the prices came from, so the result can be reproduced and cited.
+    """
+    body = request.get_json(silent=True) or {}
+
+    ticker = (body.get("ticker") or "").upper()
+    if not ticker:
+        return jsonify({"error": "ticker is required"}), 400
+
+    strategy = body.get("strategy") or "ma20_50_crossover"
+    if strategy not in backtesting.STRATEGIES:
+        return jsonify({
+            "error": f"Unknown strategy '{strategy}'",
+            "known": sorted(backtesting.STRATEGIES),
+        }), 400
+
+    params = body.get("params") or {}
+    start = body.get("start")
+    end = body.get("end")
+    try:
+        starting_cash = float(body.get("starting_cash", 10000))
+    except (TypeError, ValueError):
+        return jsonify({"error": "starting_cash must be a number"}), 400
+
+    try:
+        closes, snapshot_refs = load_closes_for_backtest(ticker, start, end)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        status = 429 if ("Rate limit" in str(e) or "Too Many Requests" in str(e)) else 500
+        return jsonify({"error": str(e)}), status
+
+    try:
+        result = backtesting.run_backtest(
+            closes, strategy=strategy, params=params, starting_cash=starting_cash
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+    run = BacktestRun(
+        actor_email=g.user_email,
+        strategy=strategy,
+        params=json_safe({**params, "starting_cash": starting_cash,
+                          "cost_bps": result["cost_bps"],
+                          "slippage_bps": result["slippage_bps"]}),
+        universe=[ticker],
+        start_date=result["start_date"],
+        end_date=result["end_date"],
+        metrics=json_safe({**result["metrics"], "benchmark": result["benchmark_metrics"]}),
+        equity_curve=json_safe(result["equity_curve"]),
+        trades=json_safe(result["trades"]),
+        snapshot_refs=snapshot_refs,
+    )
+    db.session.add(run)
+    db.session.flush()
+
+    write_audit(
+        "backtest_run",
+        entity=ticker,
+        payload={
+            "backtest_run_id": str(run.id),
+            "strategy": strategy,
+            "total_return_pct": result["metrics"]["total_return_pct"],
+            "beat_benchmark": result["metrics"]["beat_benchmark"],
+        },
+        snapshot_ref=snapshot_refs[0] if snapshot_refs else None,
+    )
+    db.session.commit()
+
+    result["backtest_run_id"] = str(run.id)
+    result["ticker"] = ticker
+    result["snapshot_refs"] = snapshot_refs
+    return jsonify(result), 200
+
+@app.route('/backtest-runs', methods=['GET'])
+@require_auth
+def list_backtest_runs():
+    """Past runs for this user, newest first (curve and trades omitted)."""
+    runs = (BacktestRun.query
+            .filter_by(actor_email=g.user_email)
+            .order_by(BacktestRun.created_at.desc())
+            .limit(25).all())
+
+    return jsonify({"runs": [
+        {
+            "id": str(r.id),
+            "strategy": r.strategy,
+            "universe": r.universe,
+            "start_date": r.start_date,
+            "end_date": r.end_date,
+            "metrics": r.metrics,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        } for r in runs
+    ]}), 200
 
 # ---------------------------------------------- Portfolio analytics ------------------------------------------------------------------------------
 

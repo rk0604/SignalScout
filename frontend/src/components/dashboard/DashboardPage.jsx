@@ -1,6 +1,7 @@
 
 import DisplayHoldings from "../portfolio_component/holdings";
 import PortfolioSummary from "../portfolio_component/PortfolioSummary";
+import BacktestPanel from "../backtest_component/BacktestPanel";
 import QueryStock from "../chart_component/QueryStock";
 import { Recommendations } from "../chart_component/stock_rec";
 import ReuseCard from "../chart_component/ui_component";
@@ -26,6 +27,9 @@ const Dashboard = () => {
         <ReuseCard>
           <QueryStock/>
         </ReuseCard>
+      </div>
+      <div className="backtest-section">
+        <BacktestPanel />
       </div>
     </div>
   );

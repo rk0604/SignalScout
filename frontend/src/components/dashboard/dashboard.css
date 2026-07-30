@@ -21,7 +21,8 @@ body {
   grid-template-areas:
     'portfolio portfolio portfolio'
     'chart chart stats'
-    'holdings trades stats';
+    'holdings trades stats'
+    'backtest backtest backtest';
   grid-template-columns: 2fr 1fr 1fr;
   grid-template-rows: auto;
   gap: 16px;
@@ -34,6 +35,11 @@ body {
 /* 📈 Portfolio roll-up spans the full width above everything else */
 .portfolio-section {
   grid-area: portfolio;
+}
+
+/* 🧪 Backtest panel spans the full width below everything else */
+.backtest-section {
+  grid-area: backtest;
 }
 
 /* 📊 Chart Section */
@@ -109,7 +115,8 @@ body {
       'chart'
       'stats'
       'holdings'
-      'trades';
+      'trades'
+      'backtest';
     grid-template-columns: 1fr;
   }
 }
