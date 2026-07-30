@@ -1124,6 +1124,40 @@ def serialize_proposal(row):
         "created_at": row.created_at.isoformat() if row.created_at else None,
     }
 
+@app.route('/audit-log', methods=['GET'])
+@require_auth
+def get_audit_log():
+    """
+    The authenticated user's own ledger entries, newest first.
+
+    Read-only by construction — there is no endpoint that mutates audit_log.
+    Optional ?action= filters to one action type.
+    """
+    q = AuditLog.query.filter_by(actor_email=g.user_email)
+
+    action = request.args.get("action")
+    if action:
+        q = q.filter(AuditLog.action == action)
+
+    try:
+        limit = min(int(request.args.get("limit", 100)), 500)
+    except (TypeError, ValueError):
+        limit = 100
+
+    rows = q.order_by(AuditLog.created_at.desc()).limit(limit).all()
+
+    return jsonify({"entries": [
+        {
+            "id": str(r.id),
+            "action": r.action,
+            "entity": r.entity,
+            "payload": r.payload,
+            "snapshot_ref": str(r.snapshot_ref) if r.snapshot_ref else None,
+            "request_id": r.request_id,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        } for r in rows
+    ]}), 200
+
 @app.route('/agent/proposals', methods=['GET'])
 @require_auth
 def agent_list_proposals():

@@ -1,0 +1,90 @@
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  z-index: 40;
+  animation: fade 0.15s ease;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 100vw);
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(15, 23, 42, 0.08);
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  animation: slide-in 0.18s ease;
+}
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-in { from { transform: translateX(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-ticker { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+.drawer-price { font-size: 15px; color: var(--muted); margin: 2px 0 0; }
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.panel-head h3 { font-size: 14px; font-weight: 600; }
+.panel-note { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.panel-error { color: var(--down); font-size: 13px; margin: 4px 0 0; }
+
+.kv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px 16px;
+}
+.kv-grid p { margin: 2px 0 0; font-size: 14px; font-weight: 600; }
+
+/* news */
+.news-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.news-list li { display: flex; gap: 10px; align-items: baseline; font-size: 13px; }
+.news-score { flex: 0 0 auto; min-width: 3.4em; font-weight: 600; font-size: 12px; }
+
+/* trade form */
+.trade-form { display: flex; flex-direction: column; gap: 10px; }
+.trade-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.trade-row label { display: flex; flex-direction: column; gap: 4px; }
+.trade-ok { color: var(--up); font-size: 13px; margin: 0; }
+.trade-err { color: var(--down); font-size: 13px; margin: 0; }
+
+@media (max-width: 620px) {
+  .drawer { width: 100vw; }
+  .trade-row { grid-template-columns: 1fr; }
+}

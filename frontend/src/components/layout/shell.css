@@ -1,0 +1,97 @@
+.shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ------------------------------------------------------------- top bar -- */
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.brand { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+
+/* Blue-to-green mark ties the two brand hues together */
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+.brand-name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.nav { display: flex; align-items: center; gap: 2px; flex: 1 1 auto; }
+
+.nav-link {
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-link:hover { background: var(--surface-2); color: var(--text); text-decoration: none; }
+.nav-link.is-active { background: var(--primary-soft); color: var(--primary-dark); }
+
+.topbar-right { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+
+.user-email {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- page -- */
+
+.page {
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.page-title { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; }
+.page-sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
+
+@media (max-width: 900px) {
+  .topbar-inner { height: auto; flex-wrap: wrap; padding: 10px 16px; gap: 12px; }
+  .nav { order: 3; width: 100%; overflow-x: auto; }
+  .user-email { display: none; }
+  .page { padding: 16px; }
+}

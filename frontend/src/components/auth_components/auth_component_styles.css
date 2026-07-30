@@ -1,120 +1,75 @@
-/* Auth screens — same terminal language as the dashboard: near-black canvas,
-   flat hairline-bordered panel, amber accent, uppercase captions. */
+/* Auth screens — light, centred, single-column. */
 
-.page-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
+.auth-page {
   min-height: 100vh;
-  width: 100%;
-  background: var(--bg);
-}
-
-.form-container {
-  width: 360px;
-  max-width: 92vw;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 26px 24px;
-  font-size: 14px;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
-  font-weight: 500;
-  color: var(--text);
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  box-sizing: border-box;
-}
-
-/* Product mark above the form so the screen isn't an anonymous box */
-.form-container::before {
-  content: "SIGNALSCOUT";
-  display: block;
-  color: var(--amber);
-  font-size: 13px;
-  letter-spacing: 0.18em;
-  text-align: center;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-.form-container .form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.form-container .form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.form-container .form-group label {
-  display: block;
-  color: var(--muted);
-  font-weight: 500;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.form-container .form-group input {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 3px;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  transition: border-color 0.15s ease;
-}
-
-.form-container .form-group input:focus {
-  outline: none;
-  border-color: var(--amber);
-}
-
-/* Primary action */
-.form-container .form-submit-btn {
-  display: flex;
   align-items: center;
   justify-content: center;
-  font-family: inherit;
-  color: var(--amber);
-  font-weight: 500;
+  gap: 16px;
+  padding: 32px 16px;
+  background:
+    radial-gradient(900px 420px at 50% -160px, var(--primary-soft), transparent 70%),
+    var(--bg);
+}
+
+.auth-card {
   width: 100%;
-  background: transparent;
-  border: 1px solid var(--amber);
-  padding: 9px 16px;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  border-radius: 3px;
-  transition: background 0.15s ease, color 0.15s ease;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 28px;
 }
 
-.form-container .form-submit-btn:hover {
-  background: var(--amber);
-  color: var(--bg);
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 20px;
 }
 
-/* Secondary action (the second button in each form) is de-emphasised so the
-   two don't compete for the same visual weight. */
-.form-container .form-submit-btn:last-of-type {
+.auth-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+.auth-brand-name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.auth-title { font-size: 20px; font-weight: 650; }
+.auth-sub { color: var(--muted); margin: 4px 0 20px; font-size: 14px; }
+
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+
+.auth-field { display: flex; flex-direction: column; gap: 5px; }
+
+.auth-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.auth-submit { width: 100%; margin-top: 4px; padding: 10px 14px; }
+
+.auth-footer {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 13px;
   color: var(--muted);
-  border-color: var(--border);
 }
 
-.form-container .form-submit-btn:last-of-type:hover {
-  background: transparent;
-  color: var(--text);
-  border-color: var(--muted);
-}
-
-.form-container button:active {
-  transform: translateY(1px);
+.auth-note {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
 }

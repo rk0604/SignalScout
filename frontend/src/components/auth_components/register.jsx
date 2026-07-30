@@ -1,159 +1,170 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import PropTypes from "prop-types";
 import api, { setSession, clearSession } from "../../api/client";
 
 import "./auth_component_styles.css";
 
-// Register Page Component
+/* Shared chrome for both auth screens. */
+function AuthLayout({ title, subtitle, children, footer }) {
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-brand">
+          <span className="auth-mark" aria-hidden="true" />
+          <span className="auth-brand-name">SignalScout</span>
+        </div>
+        <h1 className="auth-title">{title}</h1>
+        <p className="auth-sub">{subtitle}</p>
+        {children}
+        <div className="auth-footer">{footer}</div>
+      </div>
+      <p className="auth-note">
+        Portfolio analytics with an auditable AI agent. Not financial advice.
+      </p>
+    </div>
+  );
+}
+
+AuthLayout.propTypes = {
+  title: PropTypes.string.isRequired,
+  subtitle: PropTypes.string,
+  children: PropTypes.node,
+  footer: PropTypes.node,
+};
+
+// Register ------------------------------------------------------------------
+
 const RegisterPage = () => {
-  const navigate = useNavigate(); // Used to navigate to the login page after registration
-  const [formdata, setFormdata] = useState({
-    email: "",
-    password: "",
-    phone: "",
-  });
+  const navigate = useNavigate();
+  const [formdata, setFormdata] = useState({ email: "", password: "", phone: "" });
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
 
-  // Handles the form changes
-  const handleChange = (e) => {
-    setFormdata({
-      ...formdata,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const handleChange = (e) =>
+    setFormdata((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  // Handles the form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setBusy(true);
+    setError(null);
     try {
       const response = await api.post("/register", formdata);
-
-      if (response.status === 200) {
-        alert("Registration Successful");
-        navigate("/"); // Redirect to the login page after successful registration
-      }
+      if (response.status === 200) navigate("/", { replace: true });
     } catch (err) {
-      if (err.response) {
-        switch(err.response.status){
-          case 400:
-            alert('invalid credentials')
-            console.log('invalid credentials')
-            break;
-          case 500:
-            alert('sorry we could not register you at this moment')
-            console.log('could not register user at this moment')
-            break;
-          default:
-            console.warn('internal server error')
-        }
-      } else {
-        console.error("Unexpected error:", err);
-      }
+      const status = err.response?.status;
+      setError(
+        status === 400
+          ? "Please fill in every field."
+          : status === 500
+          ? "That email or phone number is already registered."
+          : "Could not create the account. Please try again."
+      );
+    } finally {
+      setBusy(false);
     }
   };
 
   return (
-    <div className="page-container">
-      <div className="form-container ibm-plex-sans-medium">
-        <form className="form" onChange={handleChange} onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input type="text" id="email" name="email" required />
-          </div>
+    <AuthLayout
+      title="Create your account"
+      subtitle="Track holdings, test strategies, and review agent proposals."
+      footer={<>Already have an account? <Link to="/">Sign in</Link></>}
+    >
+      <form className="auth-form" onSubmit={handleSubmit}>
+        {error && <div className="alert alert-error">{error}</div>}
 
-          <div className="form-group">
-            <label htmlFor="phone">Phone #</label>
-            <input type="tel" id="phone" name="phone" required />
-          </div>
+        <div className="auth-field">
+          <label htmlFor="email">Email</label>
+          <input className="field" type="email" id="email" name="email"
+                 value={formdata.email} onChange={handleChange}
+                 autoComplete="email" required />
+        </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Select a secure password</label>
-            <input type="password" id="password" name="password" required />
-          </div>
-          <button className="form-submit-btn" type="submit">
-            Submit
-          </button>
+        <div className="auth-field">
+          <label htmlFor="phone">Phone</label>
+          <input className="field" type="tel" id="phone" name="phone"
+                 value={formdata.phone} onChange={handleChange}
+                 autoComplete="tel" required />
+        </div>
 
-          <button className="form-submit-btn" onClick={() => navigate("/")}>
-            Login
-          </button>
-        </form>
-      </div>
-    </div>
+        <div className="auth-field">
+          <label htmlFor="password">Password</label>
+          <input className="field" type="password" id="password" name="password"
+                 value={formdata.password} onChange={handleChange}
+                 autoComplete="new-password" required />
+        </div>
+
+        <button className="btn btn-primary auth-submit" type="submit" disabled={busy}>
+          {busy ? "Creating account…" : "Create account"}
+        </button>
+      </form>
+    </AuthLayout>
   );
 };
 
-// Login Page Component
-export function LoginPage() {
-  const navigate = useNavigate(); // Used to navigate to the login page after registration
-  const [formdata, setFormdata] = useState({
-    email: "",
-    password: "",
-  });
+// Login ---------------------------------------------------------------------
 
-  // Handles the form changes
-  const handleChange = (e) => {
-    setFormdata({
-      ...formdata,
-      [e.target.name]: e.target.value,
-    });
+export function LoginPage() {
+  const navigate = useNavigate();
+  const [formdata, setFormdata] = useState({ email: "", password: "" });
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const handleChange = (e) =>
+    setFormdata((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    clearSession(); // never leave a stale token behind on a failed attempt
+    try {
+      const response = await api.post("/login", formdata);
+      if (response.status === 200 && response.data?.token) {
+        setSession(response.data.token, response.data.email || formdata.email);
+        navigate("/app/overview", { replace: true });
+      }
+    } catch (err) {
+      const status = err.response?.status;
+      setError(
+        status === 400 || status === 404
+          ? "Incorrect email or password."
+          : "Could not sign in. Please try again."
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const handleLogin = async(e) => {
-    e.preventDefault();
-    // Drop any previous session so a failed login can't leave a stale token behind.
-    clearSession();
-        try{
-            const response = await api.post('/login', formdata);
-
-            if(response.status === 200 && response.data?.token){
-                // The token is now the credential; every later request carries it.
-                setSession(response.data.token, response.data.email || formdata.email);
-                navigate('/dashboard');
-            }
-
-        }catch(err){
-            const {response} = err;
-            if(response){
-              switch(response.status){
-                case 400:
-                  console.log('invalid credentials')
-                  alert('invalid credentials')
-                  break;
-                case 500:
-                  console.warn('internal server error', err)
-                  break;
-                default:
-                  console.log('internal server error: ', err)
-              }
-            } else{
-              console.warn('error: ', err)
-            }
-        }
-    }
-
-
   return (
-    <div className="page-container">
-      <div className="form-container ibm-plex-sans-medium">
-        <form className="form" onSubmit={handleLogin} onChange={handleChange} >
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input type="text" id="email" name="email" required />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input type="password" id="password" name="password" required />
-          </div>
-          <button className="form-submit-btn" type="submit">
-            Submit
-          </button>
+    <AuthLayout
+      title="Sign in"
+      subtitle="Welcome back."
+      footer={<>New here? <Link to="/register">Create an account</Link></>}
+    >
+      <form className="auth-form" onSubmit={handleLogin}>
+        {error && <div className="alert alert-error">{error}</div>}
 
-          <button className="form-submit-btn" onClick={() => navigate("/register")}>
-            Sign Up
-          </button>
-        </form>
-      </div>
-    </div>
+        <div className="auth-field">
+          <label htmlFor="login-email">Email</label>
+          <input className="field" type="email" id="login-email" name="email"
+                 value={formdata.email} onChange={handleChange}
+                 autoComplete="email" required />
+        </div>
+
+        <div className="auth-field">
+          <label htmlFor="login-password">Password</label>
+          <input className="field" type="password" id="login-password" name="password"
+                 value={formdata.password} onChange={handleChange}
+                 autoComplete="current-password" required />
+        </div>
+
+        <button className="btn btn-primary auth-submit" type="submit" disabled={busy}>
+          {busy ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }
 
