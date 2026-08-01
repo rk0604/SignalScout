@@ -29,7 +29,11 @@ bcrypt==4.2.1
 PyJWT==2.10.1
 
 # Market data + numerics
-yfinance==0.2.52
+# curl_cffi lets yfinance impersonate a real browser's TLS fingerprint, which
+# is what actually gets past Yahoo's aggressive IP rate limiting — without it,
+# 0.2.5x versions get 429'd on nearly every call.
+yfinance==0.2.66
+curl_cffi==0.15.0
 pandas==2.2.3
 numpy==2.2.1
 
