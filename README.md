@@ -1,238 +1,235 @@
-
 # SignalScout 📈
 
-SignalScout is a full-stack financial analytics platform that enables users to explore, track, and analyze stock market signals through a clean and interactive interface. It combines real-time data scraping, financial charting, and sentiment analysis to help users make informed investment decisions.
+Portfolio analytics with an **auditable AI trading agent**. SignalScout tracks a
+stock portfolio, backtests trading strategies against historical prices, and
+runs an AI agent that investigates with tools and proposes trades — where every
+proposal, the evidence behind it, and every human decision is recorded in an
+append-only audit ledger.
+
+The emphasis is on **reliable, auditable agent workflows**: the agent never
+executes a trade, every backtest it runs is stored and reproducible, and its
+whole investigation (which tools it called, what came back) is reviewable.
 
 ---
 
-## Table of Contents
+## Contents
 
-1. [Overview](#overview)
-2. [Features](#features)
-3. [Architecture](#architecture)
-4. [Tech Stack](#tech-stack)
-5. [Installation](#installation)
-6. [Project Structure](#project-structure)
-7. [Environment Variables](#environment-variables)
-8. [License](#license)
-
----
-
-## Overview
-
-SignalScout allows users to input stock tickers and receive a holistic view of their performance, enriched by:
-
-- Real-time financial charts
-- Sentiment analysis from news scraping
-- User-based account management and persistence
-- Financial data retrieval using yFinance
+1. [Features](#features)
+2. [Tech stack](#tech-stack)
+3. [Quickstart (fresh machine)](#quickstart-fresh-machine)
+4. [Database setup](#database-setup)
+5. [Environment variables](#environment-variables)
+6. [The AI agent](#the-ai-agent)
+7. [Backtesting](#backtesting)
+8. [Project structure](#project-structure)
+9. [Troubleshooting](#troubleshooting)
+10. [Deployment](#deployment)
 
 ---
 
 ## Features
 
-- 📊 **Interactive Stock Charts** (candlesticks, volume, indicators)
-- 📰 **News Sentiment Analysis** using web scraping + TextBlob
-- 🔐 **User Authentication** (register/login with hashed passwords)
-- 🧠 **Signal Detection** for buy/sell hints using basic indicators
-- 🔁 **Daily Data Syncing** from external APIs
+- **Portfolio dashboard** — holdings, allocation, day change, live quotes over WebSocket
+- **Research** — per-ticker price + moving-average chart, risk metrics, fundamentals, news sentiment, analyst consensus
+- **Backtesting** — five strategies from a trend-following crossover up to cross-sectional momentum, priced with costs + slippage against a fair benchmark, with a human notes layer on each run
+- **AI agent** — a tool-using loop (`claude-*`) that checks signals, commissions its own backtests, and proposes trades; a human approves, and only then does anything execute
+- **Audit ledger** — append-only record of every state change (sign-ins, trades, agent proposals, tool calls, decisions) with the evidence snapshot behind each
+- **Auth** — JWT bearer tokens, bcrypt-hashed passwords; identity is always derived from the token, never the request body
 
 ---
 
-## Architecture
+## Tech stack
 
-```
-SignalScout/
-├── backend/      # Flask API service with PostgreSQL integration
-├── frontend/     # React + Vite frontend UI
-├── guide.txt     # User and developer instructions
-├── requirements.txt
-└── README.md     # Project overview and documentation
-```
+**Backend:** Flask 3, Flask-SQLAlchemy, Flask-SocketIO, PyJWT, bcrypt, yfinance
+(+ curl_cffi), pandas/numpy, TextBlob, anthropic, gunicorn
+**Frontend:** React 18, Vite 6, React Router 7, recharts, axios, socket.io-client
+**Database:** PostgreSQL (built for [Neon](https://neon.tech) serverless)
 
 ---
 
-## Tech Stack
+## Quickstart (fresh machine)
 
-### 🔧 Backend
+Prerequisites: **Python 3.11+**, **Node 18+**, and a **PostgreSQL connection
+string** (a free Neon database works out of the box).
 
-- **Language:** Python
-- **Framework:** Flask
-- **Database:** PostgreSQL via SQLAlchemy
-- **Data & Tools:** yFinance, BeautifulSoup, TextBlob, dotenv, bcrypt
-- **Security:** JWT tokens, password hashing, CORS restrictions
-
-### 🎨 Frontend
-
-- **Framework:** React with Vite
-- **Language:** TypeScript
-- **Styling:** CSS, custom components
-- **Charts:** `react-financial-charts`, `recharts`
-- **Routing:** React Router DOM
-- **Data Fetching:** Axios
-
----
-
-## Installation
-
-### 🚀 Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Visit: `http://localhost:5173`
-
-### 🔧 Backend
+### 1. Backend
 
 ```bash
 cd backend
 python -m venv venv
-# Windows
-venv\Scripts\activate
-# macOS/Linux
-source venv/bin/activate
-
+# Windows:        venv\Scripts\activate
+# macOS/Linux:    source venv/bin/activate
 pip install -r requirements.txt
-
-# Ensure Postgres is running and DATABASE_URL is set in backend/.env
-python app.py   # or: flask run --debug
-
 ```
 
-Default API: `http://localhost:5000`
+Create `backend/.env` from the template and fill it in:
 
----
-# SignalScout 📈
+```bash
+cp .env.example .env
+```
 
-SignalScout is a full-stack financial analytics platform that lets users explore, track, and analyze stock market signals through a clean, interactive UI. It combines Yahoo Finance data ingestion (via `yfinance`), simple risk analytics, analyst-consensus–based recommendations, and portfolio tracking.
+At minimum set `DATABASE_URL` and `SECRET_KEY`. Generate a secret with:
 
-> **Status snapshot**  
-> ✅ Working now: user auth (bcrypt), holdings tracking, analyst-consensus recommendations, risk metrics (volatility + ratios), price chart, latest news links  
-> ⚙️ In code but not fully wired to UI yet: 20/50-day MA utilities  
-> 🧪 Future: sentiment scoring (TextBlob polarity), JWT-based auth, caching, Docker
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
 
----
+Then start the backend — **the database schema is created automatically on
+first boot** (see [Database setup](#database-setup)):
 
-## Table of Contents
+```bash
+python app.py
+```
 
-1. [Overview](#overview)  
-2. [Features](#features)  
-3. [How the Analytics Work](#how-the-analytics-work)  
-4. [Architecture](#architecture)  
-5. [Tech Stack](#tech-stack)  
-6. [Installation](#installation)  
-7. [Database & Models](#database--models)  
-8. [API Reference](#api-reference)  
-9. [Project Structure](#project-structure)  
-10. [Environment Variables](#environment-variables)  
-11. [Dev Tips & Troubleshooting](#dev-tips--troubleshooting)  
-12. [Roadmap](#roadmap)  
-13. [License](#license)
+API runs at `http://127.0.0.1:5000`. Health check: `GET /health`.
 
----
+### 2. Frontend
 
-## Overview
+```bash
+cd frontend
+npm install
+cp .env.example .env      # VITE_API_URL defaults to http://127.0.0.1:5000
+npm run dev
+```
 
-SignalScout allows users to input stock tickers and receive a holistic view:
+App runs at `http://localhost:5173`. Register an account and sign in.
 
-- Real-time financial charts (1y close series)
-- “Risk card” with annualized volatility + key ratios
-- Analyst-consensus recommendations (top list with confidence indicator)
-- User account, pinned tickers, and holdings tracking
-- Data retrieval with `yfinance` and news scraping (Yahoo Finance)
+> The agent is optional. Without `ANTHROPIC_API_KEY` set, the **Agent** page's
+> Propose button returns a friendly 503 and everything else works normally.
 
 ---
 
-## Features
+## Database setup
 
-- 📊 **Interactive Stock Charts** — 1-year close price series using `recharts`
-- 🧾 **Financials Snapshot** — Key line items from `yfinance.Ticker(...).financials` plus market cap, PE, dividends, OCF, latest price
-- ⚠️ **Risk Analysis** — Annualized volatility + Debt/Equity, Current, Quick ratios
-- 🧠 **Recommendations** — Analyst-consensus scoring from `yfinance.get_recommendations()` (see details below)
-- 📌 **Pins & Portfolio** — Pin tickers to watch; track holdings, last quote, and simple ROI
-- 🔐 **Auth** — Register/Login with bcrypt-hashed passwords
-- 🔁 **Daily Job (optional)** — Sample cron-style script hits the recommendations endpoint
+**No manual SQL is required — setup is autonomous.** On startup (`python app.py`)
+and via the CLI command below, the app runs `db.create_all()` plus a set of
+additive migrations, which create every table and add any columns introduced
+after a table already existed. Point `DATABASE_URL` at an empty database and it
+provisions itself.
 
----
+To provision without starting the server (useful in CI or a deploy step):
 
-## How the Analytics Work
+```bash
+cd backend
+flask --app app init-db
+```
 
-### 1) Annualized Volatility (Risk Card)
-From `/fetch-risk-anal`:
-- Pull daily closes from 2020-01-01 → today.
-- Compute **daily returns**: `returns_t = Close_t / Close_{t-1} - 1`.
-- Compute **annualized volatility**:  
-  \[
-  \sigma_{\text{annual}} = \text{std}(\text{daily returns}) \times \sqrt{252}
-  \]
-- Volatility is color-banded in the UI:
-  - `< 0.15` low, `0.15–0.30` moderate, `0.30–0.50` elevated, `≥ 0.50` high
-- Fetch **ratios** from `ticker.info`: `debtToEquity`, `currentRatio`, `quickRatio`. Also returns `latest_price`.
+Tables created: `user_data`, `user_holdings`, `market_snapshot`,
+`backtest_run`, `agent_proposal`, `agent_run`, `audit_log`.
 
-### 2) Analyst-Consensus Recommendations
-From `/fetch-recs`:
-- Build a candidate ticker set = curated S&P-style list **+** the user’s pinned tickers.
-- For each ticker:
-  - Call `ticker.get_recommendations()` (yfinance). This returns counts of `strongBuy`, `buy`, `hold`, `sell`, `strongSell` by date.
-  - Take the latest row; compute totals:
-    \[
-    \text{sum} = \text{strongBuy} + \text{buy} + \text{hold} + \text{sell} + \text{strongSell}
-    \]
-  - Compute **proportions**:
-    - `buy_score = (strongBuy + buy) / sum`
-    - `hold_score = hold / sum`
-    - `sell_score = (strongSell + sell) / sum`
-  - Pick the **rating** with the max proportion; store its value as **indicator**.
-- Return **Top N** (currently ~30 + pinned) by highest `indicator`.
+### Optional: provision by hand
 
-> The backend throttles requests with `time.sleep(0.5)` per ticker to be friendlier to rate limits.
+If you'd rather run raw SQL against Neon (e.g. to inspect or pre-create the
+schema), [`backend/schema.sql`](backend/schema.sql) contains the full
+`CREATE TABLE` DDL. It's generated from the models and is idempotent
+(`CREATE TABLE IF NOT EXISTS`), but the boot-time path above is the source of
+truth — you never *need* to run it.
 
-### 3) Financials Snapshot
-From `/fetch-stock-data`:
-- Pull `Ticker(...).financials` (wide DataFrame keyed by period), coerce to a serializable dict, and include:
-  - **Additional data** (from `ticker.info` & history): `marketCap`, `trailingPE`, **sum of dividends**, `operatingCashflow`, `latest_price`.
-- A CSV snapshot (`backend/stockAnalysisData.csv`) is maintained in a **key-value layout** to avoid duplicates:
-
-
-### 4) Holdings & ROI
-From `/get-holdings`:
-- For each holding, fetch last close (`Ticker(...).history(period="1d")`), then compute:
-\[
-\text{ROI (\%)} = \frac{\text{last\_quote} - \text{avg\_price}}{\text{avg\_price}} \times 100
-\]
-
-> Utilities for moving averages (MA20/MA50) and crossovers exist in the backend but are not currently used for UI or recs.
+```bash
+psql "$DATABASE_URL" -f backend/schema.sql
+```
 
 ---
 
-## Architecture
+## Environment variables
 
-```mermaid
-flowchart LR
-FE[Frontend (React + Vite)] -- Axios --> BE[(Flask API)]
-subgraph BE_Services[Backend Services]
-  BE --> YF[yfinance]
-  BE --> YNEWS[Yahoo Finance News (HTML)]
-  BE --> PG[(PostgreSQL)]
-end
+Backend (`backend/.env`):
 
-subgraph UI[Frontend Modules]
-  CHART[PriceChart.jsx] --> FE
-  RISK[RiskAnal.jsx] --> FE
-  RECS[stock_rec.jsx] --> FE
-  OVERVIEW[overView.jsx] --> FE
-  HOLD[holdings.jsx] --> FE
-end
+| Variable | Required | Purpose |
+|---|---|---|
+| `DATABASE_URL` | ✅ | Postgres connection string. `postgres://` is normalised to `postgresql://` automatically. |
+| `SECRET_KEY` | ✅ | Signs JWTs. The app refuses to start without it. |
+| `ANTHROPIC_API_KEY` | — | Enables the AI agent. Without it, agent routes return 503 and nothing else is affected. |
+| `FRONTEND_URL` | — | Allowed CORS origin(s), comma-separated. Defaults to `http://localhost:5173`. |
+| `JWT_EXP_HOURS` | — | Token lifetime in hours (default 24). |
+| `QUOTE_POLL_SECONDS` | — | Seconds between realtime quote pushes (default 30). |
+| `FLASK_DEBUG` | — | `1` enables the reloader/debugger locally. Leave unset in production. |
 
-CRON[daily_task.py] -->|POST /fetch-recs| BE
+Frontend (`frontend/.env`):
 
-## License
-
-This project is for educational and demonstration purposes.
+| Variable | Required | Purpose |
+|---|---|---|
+| `VITE_API_URL` | ✅ | Backend origin. Defaults to `http://127.0.0.1:5000` locally; set to the deployed API in production. |
 
 ---
 
-📬 For demo video, check `SignalScoutFinalVideo - Made with Clipchamp.mp4` inside the repo.
+## The AI agent
+
+The agent runs a **propose → approve → execute** loop and never touches the
+portfolio directly.
+
+- **Agentic mode (default):** the agent gets read-only tools
+  (`list_strategies`, `run_backtest`, `get_holdings`, `get_quote`,
+  `get_signals`, `get_sentiment`) plus a terminal `submit_proposals`. It starts
+  from your positions only and must investigate — including running its own
+  backtests — before proposing. The full tool trace is stored as an `agent_run`
+  and shown on the Agent page.
+- **Single-shot mode:** one call over pre-gathered evidence, kept as a baseline.
+- **Model routing:** choose Haiku (cheapest, default), Sonnet, or Opus per run.
+  A typical agentic run on Haiku costs roughly **$0.03–0.05**.
+
+Every proposal is written with the snapshots it saw and the backtest that
+validated its reasoning; approvals/rejections are appended to the audit ledger.
+
+---
+
+## Backtesting
+
+A strategy is a pure function of price history (`closes → position per bar`),
+so runs are deterministic and reproducible. Signals are shifted one bar forward
+to prevent look-ahead bias, and every run is priced with commission + slippage
+against a fair benchmark (buy-and-hold, or equal-weight for a universe).
+
+| Level | Strategy | Kind |
+|---|---|---|
+| L1 | Moving-average crossover | Trend following |
+| L2 | RSI mean reversion | Mean reversion |
+| L3 | Bollinger-band reversion | Mean reversion |
+| L4 | Time-series momentum + vol targeting | Systematic |
+| L5 | Cross-sectional momentum | Systematic (multi-asset) |
+
+Strategy definitions and their parameter schemas live in
+[`backend/backtesting.py`](backend/backtesting.py) (`STRATEGY_SPECS`) and are
+served to the UI via `GET /strategies`, so the form, validation, and the
+agent's tool all read from one definition.
+
+---
+
+## Project structure
+
+```
+signalscout/
+├── backend/
+│   ├── app.py            # Flask app: routes, models, auth, sockets, migrations
+│   ├── agent.py          # AI agent: tool-use loop + single-shot baseline
+│   ├── backtesting.py    # Strategies + single-asset and portfolio simulators
+│   ├── schema.sql        # Optional manual DDL (auto-generated from models)
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/
+│   ├── src/pages/        # Overview, Research, Backtest, Agent, Activity
+│   ├── src/components/   # stock drawer, agent trace, backtest notes, layout
+│   ├── src/api/          # axios client + realtime socket
+│   └── .env.example
+└── docs/
+    ├── ROADMAP.md
+    └── DEPLOY.md         # Render + Vercel deployment guide
+```
+
+---
+
+## Troubleshooting
+
+- **`SECRET_KEY is not set`** — add it to `backend/.env`; generate one with the command above.
+- **`DATABASE_URL is not set`** — the backend needs a Postgres URL to start.
+- **Agent returns 503** — `ANTHROPIC_API_KEY` isn't set (or is invalid). This is expected until you add it; restart the backend after editing `.env`, since env is read only at startup.
+- **yfinance rate limits / empty data** — `curl_cffi` (in requirements) lets yfinance impersonate a browser and avoids most 429s. If you still get rate-limited, wait a few minutes; cached snapshots keep the app usable.
+- **Neon “SSL connection closed”** — expected when Neon scales to zero; the pool is configured with `pool_pre_ping` to reconnect transparently.
+
+---
+
+## Deployment
+
+See [`docs/DEPLOY.md`](docs/DEPLOY.md) for the Render (backend) + Vercel
+(frontend) walkthrough. In production, run `flask --app app init-db` once as a
+release step, or let the first boot provision the schema.
