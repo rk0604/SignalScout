@@ -213,7 +213,10 @@
 .disclose { font-size: 12px; font-weight: 600; color: var(--primary); white-space: nowrap; }
 
 /* Saved reasoning shown inside an expanded decision/activity row */
-.reasoning { padding: 4px 2px 8px; max-width: 900px; }
+.reasoning { padding: 4px 2px 8px; max-width: 820px; overflow-wrap: anywhere; }
+.reasoning .proposal-rationale,
+.reasoning .proposal-risks,
+.reasoning .evidence li { overflow-wrap: anywhere; }
 .payload-raw { margin-top: 10px; }
 .payload-raw summary {
   cursor: pointer; font-size: 12px; color: var(--muted);
@@ -276,7 +279,11 @@
   font-weight: 600;
 }
 
-.detail-row td { background: var(--surface-2); }
+/* Data cells are nowrap (`.table td` in index.css) to keep numbers on one line,
+   but the detail row holds prose — reasoning, notes, raw JSON — which must wrap.
+   Without this the rationale renders as one long line that drags the table past
+   its container and scrolls the other columns off-screen. */
+.detail-row td { background: var(--surface-2); white-space: normal; }
 
 .payload {
   margin: 0;
