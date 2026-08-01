@@ -117,6 +117,19 @@ flask --app app init-db
 Tables created: `user_data`, `user_holdings`, `market_snapshot`,
 `backtest_run`, `agent_proposal`, `agent_run`, `audit_log`.
 
+### Maintenance: snapshot retention
+
+`market_snapshot` is both a cache and an evidence store, so it grows over time.
+Prune stale cache rows while **preserving any cited as evidence** (by a backtest,
+proposal, or audit row) — pruning never breaks reproducibility:
+
+```bash
+flask --app app prune-snapshots --days 90 --dry-run   # preview
+flask --app app prune-snapshots --days 90             # delete
+```
+
+Run it manually, or on a schedule (e.g. Render Cron) once deployed.
+
 ### Optional: provision by hand
 
 If you'd rather run raw SQL against Neon (e.g. to inspect or pre-create the

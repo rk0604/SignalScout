@@ -34,6 +34,7 @@ import re
 from functools import wraps
 from threading import Lock
 from flask_socketio import SocketIO, emit, join_room, leave_room
+import click
 import backtesting
 import agent
 
@@ -2499,6 +2500,68 @@ def apply_light_migrations():
     with db.engine.begin() as conn:
         for stmt in statements:
             conn.execute(text(stmt))
+
+def collect_referenced_snapshot_ids():
+    """
+    Every market_snapshot id cited as evidence somewhere.
+
+    A snapshot has two lives: a freshness cache, and immutable evidence a
+    decision was based on. The second must never be pruned or the decision stops
+    being reproducible — so retention has to know exactly which snapshots are
+    still pointed at, across the audit ledger, backtests and proposals.
+    """
+    referenced = set()
+
+    for (sid,) in (db.session.query(AuditLog.snapshot_ref)
+                   .filter(AuditLog.snapshot_ref.isnot(None)).distinct()):
+        referenced.add(str(sid))
+
+    for model in (BacktestRun, AgentProposal):
+        for (arr,) in (db.session.query(model.snapshot_refs)
+                       .filter(model.snapshot_refs.isnot(None))):
+            for ref in (arr or []):
+                referenced.add(str(ref))
+
+    return referenced
+
+def prune_snapshots(days=90, dry_run=False):
+    """
+    Delete cache snapshots older than `days`, preserving any cited as evidence.
+
+    Returns a summary. Evidence snapshots are kept regardless of age; only stale,
+    uncited cache rows are removed, so the audit trail stays fully reproducible.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    referenced = collect_referenced_snapshot_ids()
+
+    old = MarketSnapshot.query.filter(MarketSnapshot.fetched_at < cutoff).all()
+    victims = [s for s in old if str(s.id) not in referenced]
+
+    summary = {
+        "cutoff": cutoff.isoformat(),
+        "retention_days": days,
+        "older_than_cutoff": len(old),
+        "kept_as_evidence": len(old) - len(victims),
+        "prunable": len(victims),
+        "dry_run": dry_run,
+    }
+    if not dry_run and victims:
+        for s in victims:
+            db.session.delete(s)
+        db.session.commit()
+        summary["deleted"] = len(victims)
+    return summary
+
+@app.cli.command("prune-snapshots")
+@click.option("--days", default=90, show_default=True,
+              help="Delete cache snapshots older than this many days.")
+@click.option("--dry-run", is_flag=True,
+              help="Report what would be deleted without deleting anything.")
+def prune_snapshots_command(days, dry_run):
+    """Prune stale market_snapshot rows, keeping any cited as evidence."""
+    summary = prune_snapshots(days=days, dry_run=dry_run)
+    for k, v in summary.items():
+        print(f"  {k}: {v}")
 
 @app.cli.command("init-db")
 def init_db_command():

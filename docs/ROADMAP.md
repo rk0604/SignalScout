@@ -145,9 +145,17 @@ into the phases below rather than fixed standalone.
 | 6 | Backtesting & strategy performance | 3, 4 | M | `DONE` |
 | 7 | Realtime prices (WebSocket) | 2 | L | `DONE` |
 | 8 | AI agent layer | 1, 3, 6 | — | `DONE` |
+| 9 | Agentic tool-use + strategy library | 6, 8 | L | `DONE` |
+| 10 | Guardrail / policy layer | 9 | S | `TODO` |
+| 11 | Agent evaluation harness + model Pareto | 9 | M | `TODO` |
+| 12 | Backtest the agent (its own equity curve) | 9 | M | `TODO` |
+| 13 | Reflection / memory loop | 9, 12 | M | `TODO` |
 
 **Recommended order:** 1 → 2 → 3 → 4 → 5 → 6, with 8 as the payoff (7 is optional polish).
 Phase 6 gates Phase 8: an agent should only trade a strategy that has been backtested.
+Phase 9 turned the agent from a single-shot call into a tool-using loop that
+commissions its own backtests. The next payoff cluster is **10 → 12 → 11**: a
+guarded agent, its backtested equity curve, then the multi-model eval.
 Fastest resume impact: **1 → 2 → 5** (secure it, ship it, make it impressive).
 
 ---
@@ -410,3 +418,86 @@ it runs a **propose → approve → execute** loop:
 **Done when:** an agent can propose a trade, the proposal + approval + execution are three
 linked `audit_log` rows, the decision is replayable from stored evidence, and the policy it
 used points to a `backtest_run`.
+
+---
+
+## Phase 9 — Agentic tool-use + strategy library  `DONE`
+
+Turned Phase 8's single-shot call into a **tool-using investigation loop**, and
+grew the one MA-crossover strategy into a five-strategy ladder plus a
+multi-asset portfolio engine.
+
+- **Strategy ladder** (`backtesting.py`): MA crossover (trend), RSI reversion,
+  Bollinger reversion, time-series momentum + vol targeting, and cross-sectional
+  momentum (multi-asset). `STRATEGY_SPECS` is the single source of truth for
+  parameters — it drives the backtest form, input validation, and the agent's
+  tool schema. Signals shift one bar (no look-ahead); runs are reproducible.
+- **Portfolio simulator** for the cross-sectional strategy: weighted basket,
+  periodic rebalance, optional market-neutral shorting, benchmarked against
+  equal-weight buy-and-hold.
+- **Agentic loop** (`agent.py`): read-only tools (`list_strategies`,
+  `run_backtest`, `get_holdings`, `get_quote`, `get_signals`, `get_sentiment`)
+  plus a terminal `submit_proposals`. The agent starts from positions only and
+  must investigate — commissioning its own backtests — before it proposes.
+  Iteration-capped with a forced-submit fallback. `agent.py` has no Flask/DB
+  imports; tools run through an injected callback.
+- **`agent_run` table + tool-call audit rows**: the whole investigation (which
+  tools, what came back, tokens, cost) is stored and shown on the Agent page.
+- **Model routing**: Haiku (default, ~$0.03–0.05/run), Sonnet, or Opus per run.
+- **Backtest notes** and **decision-reasoning views**: a human notes layer on
+  immutable runs (audited), and every agent decision surfaces its saved
+  reasoning on the Agent and Activity pages.
+
+> Verified live end-to-end on Haiku: the agent ran signals → sentiment → quotes
+> → its own backtests → proposals citing those backtest ids, all persisted.
+> Open: prompt caching is not yet engaging; Sonnet/Opus paths are wired but
+> unexercised.
+
+---
+
+## Phase 10 — Guardrail / policy layer  `TODO`
+
+A deterministic policy layer between propose and execute: position-size caps,
+concentration limits, max daily turnover, a drawdown circuit-breaker. The agent
+may *propose* out of bounds; the policy blocks execution and logs a
+`policy_blocked` audit row. This is the "reliable" in *reliable auditable agent
+workflows* — cheap to build, ~$0 to run, and the honest answer to "would you let
+it touch real money". Hooks in at the `submit_proposals` / `agent/decide` seam.
+
+## Phase 11 — Agent evaluation harness + model Pareto  `TODO`
+
+A suite of frozen scenarios scored on evidence-grounding (did every
+`evidence_used` item actually exist?), calibration (does "high confidence"
+correlate with beating the benchmark?), decision quality, and cost/latency.
+Because the snapshot store freezes evidence, evals are reproducible to the byte.
+Run the suite across **Haiku vs Sonnet vs Opus** and publish the
+**cost-vs-quality Pareto curve** — the rarest signal in a portfolio project.
+`agent_run` already stores what it scores.
+
+## Phase 12 — Backtest the agent  `TODO`
+
+Replay the agent monthly over 2–3 years on point-in-time snapshots, simulate its
+approved trades, and chart the **agent's own equity curve vs buy-and-hold vs the
+deterministic strategies**. Directly answers the north-star question — "can the
+AI actually manage a portfolio?" — with a number. Bounded cost (~$1–5/replay on
+Haiku); the look-ahead discipline in the backtester keeps it honest.
+
+## Phase 13 — Reflection / memory loop  `TODO`
+
+Before proposing, the agent reads its own past proposals and their realized
+outcomes from the audit ledger and writes a short self-assessment that feeds the
+next run. The append-only ledger *is* the memory substrate, so the memory is
+factual rather than a vector-DB guess. Lowest priority; most gimmick-prone.
+
+---
+
+## Operational maintenance
+
+- **Snapshot retention** (`flask --app app prune-snapshots --days 90 [--dry-run]`):
+  deletes stale `market_snapshot` cache rows while preserving any cited as
+  evidence by a backtest, proposal, or audit row — so pruning never breaks
+  reproducibility. Run manually or on a schedule once deployed.
+- **Backlog (deploy-shaped):** httpOnly-cookie auth (currently localStorage +
+  bearer), FinBERT sentiment behind a `SENTIMENT_BACKEND` flag (default
+  TextBlob), and a Redis message queue for multi-worker Socket.IO. Each depends
+  on the final hosting topology and is deferred until Phase 2 (Deploy) lands.
