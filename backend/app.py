@@ -4,6 +4,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from flask_cors import CORS
 import os
+import sys
+
+# On Windows the console defaults to cp1252, so any print() containing an emoji
+# or other non-Latin-1 character raises UnicodeEncodeError — which, inside a
+# request handler, turns a successful response into a 500. Force UTF-8 so
+# logging can never crash a route.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
 from dotenv import load_dotenv
 import yfinance as yf
 import json
@@ -146,6 +157,9 @@ class BacktestRun(db.Model):
     equity_curve = db.Column(JSONB, nullable=True)  # [{date, equity, benchmark}]
     trades = db.Column(JSONB, nullable=True)
     snapshot_refs = db.Column(JSONB, nullable=True) # market_snapshot ids used
+    # A human's own note on the run — why it was worth testing, what to make of
+    # the result. The metrics are the machine's record; this is the analyst's.
+    notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(
         db.DateTime(timezone=True), nullable=False, server_default=db.func.now()
     )
@@ -172,6 +186,9 @@ class AgentProposal(db.Model):
     # Provenance: what the agent saw, and what validated the strategy.
     snapshot_refs = db.Column(JSONB, nullable=True)
     backtest_run_id = db.Column(UUID(as_uuid=True), nullable=True)
+    # The investigation this proposal came out of, so a reviewer can see the
+    # tool calls that led here rather than just the conclusion.
+    agent_run_id = db.Column(UUID(as_uuid=True), nullable=True)
     model = db.Column(db.String(64), nullable=True)
     status = db.Column(db.String(16), nullable=False, default="pending")  # pending|approved|rejected|executed|failed
     decided_at = db.Column(db.DateTime(timezone=True), nullable=True)
@@ -179,6 +196,34 @@ class AgentProposal(db.Model):
     created_at = db.Column(
         db.DateTime(timezone=True), nullable=False, server_default=db.func.now()
     )
+
+class AgentRun(db.Model):
+    """
+    One invocation of the agent, with the trail of how it got there.
+
+    The agentic mode investigates before it concludes, so the interesting record
+    is not just the proposals but the sequence of tool calls behind them: which
+    strategies it backtested, what came back, what it did next. Storing that
+    makes a run reviewable rather than a black box, and storing tokens and cost
+    makes the price of a decision visible.
+    """
+    __tablename__ = "agent_run"
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor_email = db.Column(db.String(120), nullable=False, index=True)
+    model = db.Column(db.String(64), nullable=True)
+    mode = db.Column(db.String(16), nullable=False, default="agentic")  # agentic | single_shot
+    status = db.Column(db.String(16), nullable=False, default="running")  # running|completed|failed
+    steps = db.Column(db.Integer, nullable=False, default=0)
+    trace = db.Column(JSONB, nullable=True)          # [{step, tool, args, result, ms}]
+    input_tokens = db.Column(db.Integer, nullable=True)
+    output_tokens = db.Column(db.Integer, nullable=True)
+    cost_usd = db.Column(db.Float, nullable=True)
+    summary = db.Column(db.Text, nullable=True)
+    error = db.Column(db.Text, nullable=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, server_default=db.func.now()
+    )
+    completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
 
 class AuditLog(db.Model):
     """
@@ -257,9 +302,15 @@ SNAPSHOT_TTL_SECONDS = {
     "financials": 24 * 3600,
     "risk": 6 * 3600,
     "price": 3600,
+    "price_history": 24 * 3600,
     "quote": 900,
     "sentiment": 3600,
 }
+
+# Backtests need years, not the single year the chart route stores: a strategy
+# that ranks on a 252-bar lookback produces nothing at all on 252 bars of data.
+BACKTEST_HISTORY_START = "2015-01-01"
+BACKTEST_HISTORY_TTL = 24 * 3600
 
 def get_snapshot(kind, ticker=None, max_age_seconds=None):
     """
@@ -1017,6 +1068,9 @@ def gather_agent_evidence(email):
         {
             "id": str(r.id),
             "strategy": r.strategy,
+            # Strategies are parameterised, so the name alone is ambiguous:
+            # a 20/50 crossover and a 5/200 one are very different rules.
+            "params": r.params,
             "universe": r.universe,
             "window": f"{r.start_date} to {r.end_date}",
             "metrics": {
@@ -1035,46 +1089,246 @@ def gather_agent_evidence(email):
         "latest_backtest_id": str(runs[0].id) if runs else None,
     }
 
+def build_agent_tools(email):
+    """
+    The agent's tool belt, bound to one user.
+
+    Every tool is read-only with one exception: run_backtest creates a stored
+    BacktestRun, which is additive evidence rather than a change to the
+    portfolio. There is deliberately no tool that can move a position — the
+    agent's only route to a trade is a proposal a human approves.
+
+    Returns (execute, state) where `state` accumulates what the run touched so
+    the resulting proposals can cite it.
+    """
+    state = {"backtest_ids": {}, "snapshot_refs": [], "last_backtest_id": None}
+
+    def _remember_snapshot(snapshot_id):
+        if snapshot_id and snapshot_id not in state["snapshot_refs"]:
+            state["snapshot_refs"].append(snapshot_id)
+
+    def tool_list_strategies(_args):
+        return {"strategies": [
+            {
+                "id": key,
+                "label": spec["label"],
+                "family": spec["family"],
+                "multi_asset": spec["multi_asset"],
+                "summary": spec["summary"],
+                "params": {
+                    name: {k: v for k, v in meta.items() if k in ("type", "default", "min", "max", "options")}
+                    for name, meta in spec["params"].items()
+                },
+            }
+            for key, spec in sorted(backtesting.STRATEGY_SPECS.items(),
+                                    key=lambda kv: kv[1]["complexity"])
+        ]}
+
+    def tool_run_backtest(args):
+        # The full result carries a multi-thousand-point equity curve; the agent
+        # only needs the verdict, so send a digest and keep the id for citation.
+        result = execute_backtest(
+            email,
+            strategy=args.get("strategy"),
+            params=args.get("params"),
+            ticker=args.get("ticker"),
+            universe=args.get("universe"),
+        )
+        keep = ("total_return_pct", "cagr_pct", "sharpe", "sortino",
+                "max_drawdown_pct", "trade_count", "win_rate_pct",
+                "excess_return_pct", "beat_benchmark")
+        run_id = result["backtest_run_id"]
+        for t in result["universe"]:
+            state["backtest_ids"][t] = run_id
+        state["last_backtest_id"] = run_id
+        for ref in result.get("snapshot_refs") or []:
+            _remember_snapshot(ref)
+        return {
+            "backtest_run_id": run_id,
+            "strategy": result["strategy"],
+            "params": result["params"],
+            "universe": result["universe"],
+            "window": f"{result['start_date']} to {result['end_date']}",
+            "bars": result["bars"],
+            "metrics": {k: result["metrics"].get(k) for k in keep},
+            "benchmark": {k: result["benchmark_metrics"].get(k) for k in keep[:6]},
+            "note": "Benchmark is buy-and-hold (single ticker) or equal-weight (universe).",
+        }
+
+    def tool_get_holdings(_args):
+        rows = Holdings.query.filter_by(email=email).all()
+        out = []
+        for h in rows:
+            if not h.num_shares:
+                continue
+            last, prev = get_quote_pair(h.ticker)
+            out.append({
+                "ticker": h.ticker,
+                "shares": int(h.num_shares),
+                "avg_price": float(h.avg_price),
+                "last_quote": last,
+                "prev_close": prev,
+            })
+        return {"holdings": out}
+
+    def tool_get_quote(args):
+        ticker = (args.get("ticker") or "").upper().strip()
+        if not ticker:
+            return {"error": "ticker is required"}
+        last, prev = get_quote_pair(ticker)
+        if last is None:
+            return {"ticker": ticker, "error": "No quote available"}
+        return {
+            "ticker": ticker, "price": last, "prev_close": prev,
+            "change_pct": ((last - prev) / prev * 100) if prev else None,
+        }
+
+    def tool_get_signals(args):
+        ticker = (args.get("ticker") or "").upper().strip()
+        snap, snap_id = get_snapshot("price", ticker=ticker, max_age_seconds=7 * 24 * 3600)
+        if not isinstance(snap, dict):
+            return {"ticker": ticker, "signals": [], "note": "No stored price data for this ticker."}
+        _remember_snapshot(snap_id)
+        return {"ticker": ticker, "signals": (snap.get("signals") or [])[-5:],
+                "snapshot_ref": snap_id}
+
+    def tool_get_sentiment(args):
+        ticker = (args.get("ticker") or "").upper().strip()
+        snap, snap_id = get_snapshot("sentiment", ticker=ticker, max_age_seconds=7 * 24 * 3600)
+        if not isinstance(snap, dict):
+            return {"ticker": ticker, "note": "No stored sentiment for this ticker."}
+        _remember_snapshot(snap_id)
+        return {
+            "ticker": ticker,
+            "overall_sentiment": snap.get("overall_sentiment"),
+            "headlines": [n.get("headline") for n in (snap.get("news") or [])[:8]],
+            "snapshot_ref": snap_id,
+        }
+
+    registry = {
+        "list_strategies": tool_list_strategies,
+        "run_backtest": tool_run_backtest,
+        "get_holdings": tool_get_holdings,
+        "get_quote": tool_get_quote,
+        "get_signals": tool_get_signals,
+        "get_sentiment": tool_get_sentiment,
+    }
+
+    def execute(name, args):
+        fn = registry.get(name)
+        if not fn:
+            return {"error": f"Unknown tool '{name}'"}
+        try:
+            return fn(args or {})
+        except BacktestError as e:
+            # A rejected backtest is useful information for the agent: it can
+            # correct the parameters and try again rather than the run failing.
+            return {"error": str(e), **e.extra}
+
+    return execute, state
+
 @app.route('/agent/propose', methods=['POST'])
 @require_auth
 def agent_propose():
     """
-    Run the agent over stored evidence and record its proposals as pending.
+    Run the agent and record its proposals as pending.
 
-    Nothing is executed here. Each proposal is written with the snapshots it was
-    based on and the backtest that validated the strategy.
+    In agentic mode the agent investigates with tools first — commissioning its
+    own backtests and reading signals — and the whole investigation is stored as
+    an AgentRun so the conclusion can be reviewed step by step. Nothing is
+    executed here; proposals are created pending regardless of mode.
     """
     email = g.user_email
-    evidence = gather_agent_evidence(email)
+    body = request.get_json(silent=True) or {}
+    mode = (body.get("mode") or "agentic").lower()
+    if mode not in ("agentic", "single_shot"):
+        return jsonify({"error": "mode must be 'agentic' or 'single_shot'"}), 400
+    model = body.get("model") or None
 
+    evidence = gather_agent_evidence(email)
     if not evidence["portfolio"]:
         return jsonify({
             "error": "No holdings to analyse. Buy or pin a position first.",
         }), 400
 
-    evidence_json = agent.build_evidence(
-        evidence["portfolio"], evidence["signals"],
-        evidence["sentiment"], evidence["backtests"],
-    )
+    # The two modes get deliberately different starting context: single-shot is
+    # handed everything because it cannot go and look, while the agentic loop
+    # gets positions only and has to retrieve the rest. Pre-loading evidence for
+    # a tool-using agent would leave it nothing to investigate.
+    if mode == "agentic":
+        evidence_json = agent.build_starting_context(evidence["portfolio"])
+    else:
+        evidence_json = agent.build_evidence(
+            evidence["portfolio"], evidence["signals"],
+            evidence["sentiment"], evidence["backtests"],
+        )
 
+    run = AgentRun(actor_email=email, mode=mode,
+                   model=model or (agent.DEFAULT_MODEL if mode == "agentic"
+                                   else agent.SINGLE_SHOT_MODEL))
+    db.session.add(run)
+    db.session.commit()  # the run exists even if the model call fails
+
+    execute_tool, tool_state = build_agent_tools(email)
     try:
-        result = agent.propose(evidence_json)
+        if mode == "agentic":
+            result = agent.run_agentic(evidence_json, execute_tool, model=model)
+        else:
+            result = agent.propose(evidence_json, model=model)
     except agent.AgentUnavailable as e:
-        return jsonify({"error": str(e), "reason": "agent_unavailable"}), 503
+        run.status = "failed"
+        run.error = str(e)
+        run.completed_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return jsonify({"error": str(e), "reason": "agent_unavailable",
+                        "agent_run_id": str(run.id)}), 503
+
+    usage = result.get("usage") or {}
+    run.model = result.get("model") or run.model
+    run.status = "completed"
+    run.steps = result.get("steps") or 0
+    run.trace = json_safe(result.get("trace") or [])
+    run.input_tokens = usage.get("input", 0) + usage.get("cache_read", 0) + usage.get("cache_write", 0)
+    run.output_tokens = usage.get("output", 0)
+    run.cost_usd = result.get("cost_usd")
+    run.summary = result.get("summary")
+    run.completed_at = datetime.now(timezone.utc)
+
+    # Every tool call is its own ledger entry: the investigation is auditable at
+    # the same granularity as the decision it produced.
+    for step in result.get("trace") or []:
+        write_audit(
+            "agent_tool_call",
+            entity=step.get("tool"),
+            payload=json_safe({"agent_run_id": str(run.id), **step}),
+            actor_email=email,
+        )
+
+    # Snapshots the agent actually touched, on top of the starting evidence.
+    snapshot_refs = list(dict.fromkeys(
+        (evidence["snapshot_refs"] or []) + (tool_state["snapshot_refs"] or [])
+    ))
 
     created = []
     for p in result["proposals"]:
+        ticker = (p.get("ticker") or "").upper()
+        # Prefer a backtest the agent ran on this very ticker; fall back to the
+        # last one it ran, then to the user's most recent.
+        backtest_id = (tool_state["backtest_ids"].get(ticker)
+                       or tool_state["last_backtest_id"]
+                       or evidence["latest_backtest_id"])
         row = AgentProposal(
             actor_email=email,
-            ticker=(p.get("ticker") or "").upper(),
+            ticker=ticker,
             action=p.get("action", "hold"),
             shares=int(p.get("shares") or 0),
             rationale=p.get("rationale"),
             confidence=p.get("confidence"),
             evidence_used=p.get("evidence_used"),
             risks=p.get("risks"),
-            snapshot_refs=evidence["snapshot_refs"],
-            backtest_run_id=evidence["latest_backtest_id"],
+            snapshot_refs=snapshot_refs,
+            backtest_run_id=backtest_id,
+            agent_run_id=run.id,
             model=result.get("model"),
         )
         db.session.add(row)
@@ -1085,14 +1339,17 @@ def agent_propose():
             entity=row.ticker,
             payload={
                 "proposal_id": str(row.id),
+                "agent_run_id": str(run.id),
                 "action": row.action,
                 "shares": row.shares,
                 "confidence": row.confidence,
                 "rationale": row.rationale,
+                "evidence_used": row.evidence_used,
+                "risks": row.risks,
                 "model": row.model,
-                "backtest_run_id": evidence["latest_backtest_id"],
+                "backtest_run_id": str(backtest_id) if backtest_id else None,
             },
-            snapshot_ref=evidence["snapshot_refs"][0] if evidence["snapshot_refs"] else None,
+            snapshot_ref=snapshot_refs[0] if snapshot_refs else None,
         )
         created.append(row)
 
@@ -1101,10 +1358,42 @@ def agent_propose():
     return jsonify({
         "summary": result["summary"],
         "model": result.get("model"),
-        "usage": result.get("usage"),
-        "evidence_snapshot_refs": evidence["snapshot_refs"],
+        "mode": mode,
+        "usage": usage,
+        "cost_usd": result.get("cost_usd"),
+        "steps": result.get("steps"),
+        "trace": result.get("trace"),
+        "stop_reason": result.get("stop_reason"),
+        "agent_run_id": str(run.id),
+        "evidence_snapshot_refs": snapshot_refs,
         "proposals": [serialize_proposal(r) for r in created],
     }), 200
+
+@app.route('/agent/runs', methods=['GET'])
+@require_auth
+def list_agent_runs():
+    """Past agent runs for this user, newest first, with their traces."""
+    runs = (AgentRun.query
+            .filter_by(actor_email=g.user_email)
+            .order_by(AgentRun.created_at.desc())
+            .limit(25).all())
+    return jsonify({"runs": [serialize_agent_run(r) for r in runs]}), 200
+
+def serialize_agent_run(row):
+    return {
+        "id": str(row.id),
+        "mode": row.mode,
+        "model": row.model,
+        "status": row.status,
+        "steps": row.steps,
+        "trace": row.trace,
+        "input_tokens": row.input_tokens,
+        "output_tokens": row.output_tokens,
+        "cost_usd": row.cost_usd,
+        "summary": row.summary,
+        "error": row.error,
+        "created_at": row.created_at.isoformat() if row.created_at else None,
+    }
 
 def serialize_proposal(row):
     return {
@@ -1118,6 +1407,7 @@ def serialize_proposal(row):
         "risks": row.risks,
         "snapshot_refs": row.snapshot_refs,
         "backtest_run_id": str(row.backtest_run_id) if row.backtest_run_id else None,
+        "agent_run_id": str(row.agent_run_id) if row.agent_run_id else None,
         "model": row.model,
         "status": row.status,
         "decision_note": row.decision_note,
@@ -1193,18 +1483,34 @@ def agent_decide():
     row.decided_at = datetime.now(timezone.utc)
     row.decision_note = note
 
+    # Carry the agent's reasoning onto the decision itself, so the ledger entry
+    # is self-contained: reviewing an approve/reject later shows *what* was
+    # decided and the reasoning it was decided on, without joining back to the
+    # proposal row.
+    reasoning = {
+        "action": row.action,
+        "shares": row.shares,
+        "confidence": row.confidence,
+        "rationale": row.rationale,
+        "evidence_used": row.evidence_used,
+        "risks": row.risks,
+        "backtest_run_id": str(row.backtest_run_id) if row.backtest_run_id else None,
+        "model": row.model,
+    }
+
     if decision == "reject":
         row.status = "rejected"
         write_audit("agent_reject", entity=row.ticker,
-                    payload={"proposal_id": str(row.id), "note": note})
+                    payload={"proposal_id": str(row.id), "note": note, **reasoning},
+                    snapshot_ref=(row.snapshot_refs or [None])[0])
         db.session.commit()
         return jsonify({"proposal": serialize_proposal(row)}), 200
 
     # ---- approved ----
     row.status = "approved"
     write_audit("agent_approve", entity=row.ticker,
-                payload={"proposal_id": str(row.id), "note": note,
-                         "action": row.action, "shares": row.shares})
+                payload={"proposal_id": str(row.id), "note": note, **reasoning},
+                snapshot_ref=(row.snapshot_refs or [None])[0])
 
     if row.action == "hold" or row.shares == 0:
         # Nothing to execute; approval is the end of the loop.
@@ -1245,26 +1551,43 @@ def load_closes_for_backtest(ticker, start=None, end=None):
     """
     snapshot_refs = []
 
-    snap, snap_id = get_snapshot("price", ticker=ticker, max_age_seconds=24 * 3600)
-    if isinstance(snap, dict) and snap.get("series"):
+    def _from_snapshot(snap, snap_id):
         rows = snap["series"]
         idx = pd.to_datetime([r["date"] for r in rows])
-        closes = pd.Series([r["price"] for r in rows], index=idx, dtype=float)
-        snapshot_refs.append(snap_id)
+        if snap_id:
+            snapshot_refs.append(snap_id)
+        return pd.Series([r["price"] for r in rows], index=idx, dtype=float)
+
+    # "price_history" holds the deep series backtests need. The chart route's
+    # "price" snapshot only covers a year — not enough for a strategy that
+    # ranks on a 252-bar lookback — so it is a last resort, not a fallback we
+    # reach for before trying to fetch properly.
+    snap, snap_id = get_snapshot("price_history", ticker=ticker,
+                                 max_age_seconds=BACKTEST_HISTORY_TTL)
+    if isinstance(snap, dict) and snap.get("series"):
+        closes = _from_snapshot(snap, snap_id)
     else:
-        # No usable snapshot: fetch and store one so the next run is reproducible.
-        hist = yf.download(ticker, start=start or "2020-01-01", end=end or date.today(),
-                           progress=False)
-        if hist.empty:
-            raise ValueError(f"No price history available for {ticker}")
-        col = hist["Close"]
-        if hasattr(col, "columns"):      # yfinance may return MultiIndex columns
-            col = col.iloc[:, 0]
-        closes = col.astype(float)
-        series = [{"date": str(i.date()), "price": float(v)} for i, v in closes.items()]
-        snapshot_refs.append(
-            put_snapshot("price_history", {"ticker": ticker, "series": series}, ticker=ticker)
-        )
+        try:
+            hist = yf.download(ticker, start=BACKTEST_HISTORY_START, end=date.today(),
+                               progress=False, auto_adjust=True)
+            if hist.empty:
+                raise ValueError(f"No price history available for {ticker}")
+            col = hist["Close"]
+            if hasattr(col, "columns"):  # yfinance may return MultiIndex columns
+                col = col.iloc[:, 0]
+            closes = col.astype(float).dropna()
+            series = [{"date": str(i.date()), "price": float(v)} for i, v in closes.items()]
+            snapshot_refs.append(
+                put_snapshot("price_history", {"ticker": ticker, "series": series}, ticker=ticker)
+            )
+        except Exception:
+            # Rate limited or delisted: a year of chart data still beats failing
+            # outright, and the bar-count check will reject it if it is too short.
+            shallow, shallow_id = get_snapshot("price", ticker=ticker,
+                                               max_age_seconds=30 * 24 * 3600)
+            if not (isinstance(shallow, dict) and shallow.get("series")):
+                raise
+            closes = _from_snapshot(shallow, shallow_id)
 
     if start:
         closes = closes[closes.index >= pd.to_datetime(start)]
@@ -1273,58 +1596,152 @@ def load_closes_for_backtest(ticker, start=None, end=None):
 
     return closes, snapshot_refs
 
-@app.route('/backtest', methods=['POST'])
+def load_universe_closes(tickers, start=None, end=None):
+    """
+    Aligned closing prices for a universe, as a DataFrame of dates by ticker.
+
+    Each ticker reuses the same snapshot path as a single-asset run, so a
+    portfolio backtest cites exactly the same evidence. Tickers with no data
+    are reported rather than silently dropped — a universe that quietly shrank
+    would change the result without explaining why.
+    """
+    series_map = {}
+    snapshot_refs = []
+    missing = []
+
+    for ticker in tickers:
+        try:
+            closes, refs = load_closes_for_backtest(ticker, start, end)
+        except Exception:
+            missing.append(ticker)
+            continue
+        if closes is None or closes.empty:
+            missing.append(ticker)
+            continue
+        series_map[ticker] = closes
+        snapshot_refs.extend(refs)
+
+    if len(series_map) < 2:
+        raise ValueError(
+            "Need at least two tickers with price history. "
+            f"No data for: {', '.join(missing) or 'none'}"
+        )
+
+    # Inner join on dates so every name is priced on every bar the basket
+    # trades; a ragged frame would make weights and returns disagree.
+    frame = pd.DataFrame(series_map).dropna()
+    if frame.shape[0] < 2:
+        raise ValueError("Tickers do not share enough overlapping history")
+
+    return frame, list(dict.fromkeys(snapshot_refs)), missing
+
+@app.route('/strategies', methods=['GET'])
 @require_auth
-def run_backtest_route():
+def list_strategies():
     """
-    Backtest a strategy over one ticker and persist the run.
+    The strategy catalogue: labels, families and parameter schemas.
 
-    The run is immutable evidence: parameters, metrics, equity curve and the
-    snapshots the prices came from, so the result can be reproduced and cited.
+    Served rather than duplicated in the frontend so the form controls, the
+    validation and the agent's proposal schema all read from one definition.
     """
-    body = request.get_json(silent=True) or {}
+    out = []
+    for key, spec in sorted(backtesting.STRATEGY_SPECS.items(),
+                            key=lambda kv: kv[1]["complexity"]):
+        # Parameters go out as an ordered array: jsonify sorts object keys, which
+        # would scramble the authored field order the form renders from.
+        out.append({
+            **{k: v for k, v in spec.items() if k != "params"},
+            "id": key,
+            "params": [{"name": name, **meta} for name, meta in spec["params"].items()],
+        })
+    return jsonify({"strategies": out}), 200
 
-    ticker = (body.get("ticker") or "").upper()
-    if not ticker:
-        return jsonify({"error": "ticker is required"}), 400
+class BacktestError(ValueError):
+    """A backtest that cannot run, with the HTTP status the API should return."""
 
-    strategy = body.get("strategy") or "ma20_50_crossover"
-    if strategy not in backtesting.STRATEGIES:
-        return jsonify({
-            "error": f"Unknown strategy '{strategy}'",
-            "known": sorted(backtesting.STRATEGIES),
-        }), 400
+    def __init__(self, message, status=400, **extra):
+        super().__init__(message)
+        self.status = status
+        self.extra = extra
 
-    params = body.get("params") or {}
-    start = body.get("start")
-    end = body.get("end")
+def execute_backtest(actor_email, strategy, params=None, ticker=None, universe=None,
+                     start=None, end=None, starting_cash=10000.0):
+    """
+    Run a backtest, persist it as evidence, and return the full result.
+
+    Shared by the HTTP route and the agent's run_backtest tool so a backtest the
+    agent commissions is the same artifact, stored the same way, as one a human
+    runs — there is no second implementation that could drift.
+
+    Raises BacktestError for anything the caller should report rather than crash.
+    """
     try:
-        starting_cash = float(body.get("starting_cash", 10000))
-    except (TypeError, ValueError):
-        return jsonify({"error": "starting_cash must be a number"}), 400
-
-    try:
-        closes, snapshot_refs = load_closes_for_backtest(ticker, start, end)
+        strategy, params = backtesting.coerce_params(strategy or "ma_crossover", params)
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        raise BacktestError(str(e), known=sorted(backtesting.STRATEGY_FUNCS)) from e
+
+    spec = backtesting.STRATEGY_SPECS[strategy]
+
+    try:
+        starting_cash = float(starting_cash)
+    except (TypeError, ValueError) as e:
+        raise BacktestError("starting_cash must be a number") from e
+    if starting_cash <= 0:
+        raise BacktestError("starting_cash must be positive")
+
+    missing = []
+    try:
+        if spec["multi_asset"]:
+            names = [t.strip().upper() for t in (universe or []) if t and t.strip()]
+            names = list(dict.fromkeys(names))
+            if len(names) < spec.get("min_universe", 2):
+                raise BacktestError(
+                    f"{spec['label']} needs at least {spec.get('min_universe', 2)} "
+                    f"tickers to rank against each other."
+                )
+            closes, snapshot_refs, missing = load_universe_closes(names, start, end)
+        else:
+            ticker = (ticker or "").upper().strip()
+            if not ticker:
+                raise BacktestError("ticker is required")
+            closes, snapshot_refs = load_closes_for_backtest(ticker, start, end)
+    except BacktestError:
+        raise
+    except ValueError as e:
+        raise BacktestError(str(e)) from e
     except Exception as e:
         status = 429 if ("Rate limit" in str(e) or "Too Many Requests" in str(e)) else 500
-        return jsonify({"error": str(e)}), status
+        raise BacktestError(str(e), status=status) from e
+
+    bars = closes.shape[0]
+    needed = backtesting.required_bars(strategy, params)
+    if bars < needed:
+        raise BacktestError(
+            f"{spec['label']} needs about {needed} bars of history to warm up, "
+            f"but only {bars} are available. Shorten the lookback or widen the date range.",
+            bars=bars, required_bars=needed,
+        )
 
     try:
-        result = backtesting.run_backtest(
-            closes, strategy=strategy, params=params, starting_cash=starting_cash
-        )
+        if spec["multi_asset"]:
+            result = backtesting.run_portfolio_backtest(
+                closes, strategy=strategy, params=params, starting_cash=starting_cash
+            )
+        else:
+            result = backtesting.run_backtest(
+                closes, strategy=strategy, params=params,
+                starting_cash=starting_cash, ticker=ticker
+            )
     except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+        raise BacktestError(str(e)) from e
 
     run = BacktestRun(
-        actor_email=g.user_email,
+        actor_email=actor_email,
         strategy=strategy,
         params=json_safe({**params, "starting_cash": starting_cash,
                           "cost_bps": result["cost_bps"],
                           "slippage_bps": result["slippage_bps"]}),
-        universe=[ticker],
+        universe=result["universe"],
         start_date=result["start_date"],
         end_date=result["end_date"],
         metrics=json_safe({**result["metrics"], "benchmark": result["benchmark_metrics"]}),
@@ -1337,20 +1754,51 @@ def run_backtest_route():
 
     write_audit(
         "backtest_run",
-        entity=ticker,
+        entity=", ".join(result["universe"]) or "-",
         payload={
             "backtest_run_id": str(run.id),
             "strategy": strategy,
+            "params": json_safe(params),
             "total_return_pct": result["metrics"]["total_return_pct"],
             "beat_benchmark": result["metrics"]["beat_benchmark"],
         },
+        actor_email=actor_email,
         snapshot_ref=snapshot_refs[0] if snapshot_refs else None,
     )
     db.session.commit()
 
     result["backtest_run_id"] = str(run.id)
-    result["ticker"] = ticker
+    result["ticker"] = ", ".join(result["universe"])
     result["snapshot_refs"] = snapshot_refs
+    if missing:
+        result["missing_tickers"] = missing
+    return result
+
+@app.route('/backtest', methods=['POST'])
+@require_auth
+def run_backtest_route():
+    """
+    Backtest a strategy and persist the run.
+
+    Single-asset strategies take `ticker`; cross-sectional ones take a
+    `universe` list and run on the portfolio engine. Either way the run is
+    immutable evidence: the parameters actually used, metrics, equity curve
+    and the snapshots the prices came from, so it can be reproduced and cited.
+    """
+    body = request.get_json(silent=True) or {}
+    try:
+        result = execute_backtest(
+            g.user_email,
+            strategy=body.get("strategy"),
+            params=body.get("params"),
+            ticker=body.get("ticker"),
+            universe=body.get("universe"),
+            start=body.get("start"),
+            end=body.get("end"),
+            starting_cash=body.get("starting_cash", 10000),
+        )
+    except BacktestError as e:
+        return jsonify({"error": str(e), **e.extra}), e.status
     return jsonify(result), 200
 
 @app.route('/backtest-runs', methods=['GET'])
@@ -1366,13 +1814,49 @@ def list_backtest_runs():
         {
             "id": str(r.id),
             "strategy": r.strategy,
+            "params": r.params,
             "universe": r.universe,
             "start_date": r.start_date,
             "end_date": r.end_date,
             "metrics": r.metrics,
+            "notes": r.notes,
             "created_at": r.created_at.isoformat() if r.created_at else None,
         } for r in runs
     ]}), 200
+
+@app.route('/backtest-runs/<run_id>/note', methods=['POST'])
+@require_auth
+def set_backtest_note(run_id):
+    """
+    Attach or update a human note on one of the user's backtest runs.
+
+    The run's numbers are immutable; the note is the one mutable, human layer on
+    top — and the edit itself is recorded in the audit log, so even the notes
+    have a trail.
+    """
+    try:
+        uuid.UUID(str(run_id))
+    except (ValueError, AttributeError):
+        return jsonify({"error": "Invalid run id"}), 400
+
+    body = request.get_json(silent=True) or {}
+    note = (body.get("note") or "").strip()
+    if len(note) > 2000:
+        return jsonify({"error": "Note is too long (2000 characters max)."}), 400
+
+    run = BacktestRun.query.filter_by(id=run_id, actor_email=g.user_email).first()
+    if not run:
+        return jsonify({"error": "Backtest run not found"}), 404
+
+    run.notes = note or None
+    write_audit(
+        "backtest_note",
+        entity=", ".join(run.universe or []) or run.strategy,
+        payload={"backtest_run_id": str(run.id), "note": note,
+                 "cleared": not bool(note)},
+    )
+    db.session.commit()
+    return jsonify({"id": str(run.id), "notes": run.notes}), 200
 
 # ---------------------------------------------- Portfolio analytics ------------------------------------------------------------------------------
 
@@ -1489,7 +1973,7 @@ def remove_pin():
     
 # ---------------------------------------------- Sentiment Analysis Routes --------------------------------------------------------------------------
 
-MAX_HEADLINES = 5
+MAX_HEADLINES = 20
 
 def _extract_news_item(item):
     """
@@ -1845,7 +2329,7 @@ def storeDataInCSV(financials, additionalData, stock):
                 writer.writerow([stock, "N/A", field, value if value is not None else "N/A"])
                 new_entries.append(entry_key_2)
 
-    print(f"✅ Data for {stock} stored successfully in key-value format.")
+    print(f"Data for {stock} stored successfully in key-value format.")
 
     
 
@@ -1998,16 +2482,35 @@ def socket_unsubscribe(data):
     for t in (data or {}).get("tickers") or []:
         leave_room(str(t).upper().strip())
 
+def apply_light_migrations():
+    """
+    Additive, idempotent schema tweaks for columns added after a table already
+    exists in a deployed database.
+
+    db.create_all() creates missing tables but never alters an existing one, so
+    a column added to a model later has to be added explicitly. Each statement
+    is guarded so running this repeatedly is safe.
+    """
+    from sqlalchemy import text
+    statements = [
+        "ALTER TABLE backtest_run ADD COLUMN IF NOT EXISTS notes TEXT",
+        "ALTER TABLE agent_proposal ADD COLUMN IF NOT EXISTS agent_run_id UUID",
+    ]
+    with db.engine.begin() as conn:
+        for stmt in statements:
+            conn.execute(text(stmt))
+
 @app.cli.command("init-db")
 def init_db_command():
     """
-    Create any missing tables (idempotent).
+    Create any missing tables and apply additive migrations (idempotent).
 
     Under gunicorn the module is imported rather than executed, so the
     __main__ block below never runs. Production deploys call this instead:
         flask --app app init-db
     """
     db.create_all()
+    apply_light_migrations()
     print("Database initialized.")
 
 @app.route("/health", methods=["GET"])
@@ -2020,6 +2523,7 @@ if __name__ == "__main__":
     # database (e.g. a new Neon project) is initialized on first boot.
     with app.app_context():
         db.create_all()
+        apply_light_migrations()
     # Served through SocketIO so websocket upgrades are handled; it falls back
     # to the normal WSGI server for plain HTTP requests.
     # Bind configuration comes from the environment so the same entrypoint works
