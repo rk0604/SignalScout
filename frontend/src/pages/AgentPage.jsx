@@ -1,11 +1,27 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import api, { isLoggedIn } from "../api/client";
+import RunTrace from "../components/agent/RunTrace";
 import "./pages.css";
 
 /*
  * Agent page — the human half of the propose → approve → execute loop.
  * The agent writes proposals; nothing moves until someone approves here.
+ *
+ * In agentic mode the agent investigates with tools first, so the run trace is
+ * shown alongside the proposals: the reasoning is auditable, not just asserted.
  */
+
+const MODES = [
+  { id: "agentic", label: "Agentic (tools)", hint: "Investigates with tools and commissions its own backtests." },
+  { id: "single_shot", label: "Single shot", hint: "One call over pre-gathered evidence. The baseline." },
+];
+
+const MODELS = [
+  { id: "", label: "Default" },
+  { id: "claude-haiku-4-5", label: "Haiku 4.5 (cheapest)" },
+  { id: "claude-sonnet-5", label: "Sonnet 5" },
+  { id: "claude-opus-5", label: "Opus 5" },
+];
 
 const ACTION_BADGE = { buy: "badge-up", sell: "badge-down", hold: "badge-neutral" };
 const CONF_BADGE = { high: "badge-up", medium: "badge-info", low: "badge-warn" };
@@ -23,6 +39,10 @@ export default function AgentPage() {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState(null);
   const [deciding, setDeciding] = useState(null);
+  const [openId, setOpenId] = useState(null); // expanded past decision
+  const [mode, setMode] = useState("agentic");
+  const [model, setModel] = useState("");
+  const [lastRun, setLastRun] = useState(null);
 
   const load = useCallback(async () => {
     if (!isLoggedIn()) return;
@@ -32,14 +52,30 @@ export default function AgentPage() {
     } catch { /* listing failure is non-fatal */ }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // Show the most recent investigation on arrival, not just right after a run:
+  // the trace is the record of how the standing proposals came about.
+  const loadLastRun = useCallback(async () => {
+    if (!isLoggedIn()) return;
+    try {
+      const res = await api.get("/agent/runs");
+      const latest = (res.data.runs || [])[0];
+      if (latest) {
+        setLastRun(latest);
+        if (latest.summary) setSummary(latest.summary);
+      }
+    } catch { /* non-fatal */ }
+  }, []);
+
+  useEffect(() => { load(); loadLastRun(); }, [load, loadLastRun]);
 
   const propose = async () => {
     setRunning(true);
     setError(null);
+    setLastRun(null);
     try {
-      const res = await api.post("/agent/propose", {});
+      const res = await api.post("/agent/propose", { mode, ...(model ? { model } : {}) });
       setSummary(res.data.summary);
+      setLastRun(res.data);
       await load();
     } catch (err) {
       const status = err.response?.status;
@@ -77,13 +113,32 @@ export default function AgentPage() {
             The agent proposes trades from stored evidence. It never executes — you decide.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={propose} disabled={running}>
-          {running ? "Analysing…" : "Propose trades"}
-        </button>
+        <div className="agent-controls">
+          <label className="agent-control">
+            <span className="label">Mode</span>
+            <select className="field" value={mode} onChange={(e) => setMode(e.target.value)}>
+              {MODES.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </label>
+          <label className="agent-control">
+            <span className="label">Model</span>
+            <select className="field" value={model} onChange={(e) => setModel(e.target.value)}>
+              {MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+            </select>
+          </label>
+          <button className="btn btn-primary" onClick={propose} disabled={running}>
+            {running ? "Investigating…" : "Propose trades"}
+          </button>
+        </div>
       </div>
+
+      <p className="agent-mode-hint">{MODES.find((m) => m.id === mode)?.hint}</p>
 
       {running && <div className="loading-bar mb" />}
       {error && <div className="alert alert-error mb">{error}</div>}
+
+      <RunTrace run={lastRun} />
+
       {summary && <div className="alert alert-info mb">{summary}</div>}
 
       {pending.length === 0 && past.length === 0 && !error && (
@@ -157,25 +212,85 @@ export default function AgentPage() {
 
       {past.length > 0 && (
         <section className="card">
-          <div className="card-head"><h2 className="card-title">Decision history</h2></div>
+          <div className="card-head">
+            <h2 className="card-title">Decision history</h2>
+            <span className="label">Click a row to see the agent&apos;s reasoning</span>
+          </div>
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Action</th><th>Ticker</th><th className="r">Shares</th><th>Status</th><th>Proposed</th></tr>
+                <tr>
+                  <th>Action</th><th>Ticker</th><th className="r">Shares</th>
+                  <th>Status</th><th>Proposed</th><th></th>
+                </tr>
               </thead>
               <tbody>
                 {past.map((p) => {
                   const [cls, text] = STATUS[p.status] || ["badge-neutral", p.status];
+                  const open = openId === p.id;
                   return (
-                    <tr key={p.id}>
-                      <td><span className={`badge ${ACTION_BADGE[p.action]}`}>{p.action}</span></td>
-                      <td>{p.ticker}</td>
-                      <td className="r num">{p.shares || "—"}</td>
-                      <td><span className={`badge ${cls}`}>{text}</span></td>
-                      <td className="num flat">
-                        {p.created_at ? new Date(p.created_at).toLocaleString() : "—"}
-                      </td>
-                    </tr>
+                    <Fragment key={p.id}>
+                      <tr className="row-clickable"
+                          onClick={() => setOpenId(open ? null : p.id)}>
+                        <td><span className={`badge ${ACTION_BADGE[p.action]}`}>{p.action}</span></td>
+                        <td>{p.ticker}</td>
+                        <td className="r num">{p.shares || "—"}</td>
+                        <td><span className={`badge ${cls}`}>{text}</span></td>
+                        <td className="num flat">
+                          {p.created_at ? new Date(p.created_at).toLocaleString() : "—"}
+                        </td>
+                        <td className="r"><span className="disclose">{open ? "Hide" : "Reasoning"}</span></td>
+                      </tr>
+                      {open && (
+                        <tr className="detail-row">
+                          <td colSpan={6}>
+                            <div className="reasoning">
+                              {p.rationale && (
+                                <p className="proposal-rationale">{p.rationale}</p>
+                              )}
+                              {p.evidence_used?.length > 0 && (
+                                <div className="proposal-block">
+                                  <p className="label">Evidence cited</p>
+                                  <ul className="evidence">
+                                    {p.evidence_used.map((e, i) => <li key={i}>{e}</li>)}
+                                  </ul>
+                                </div>
+                              )}
+                              {p.risks && (
+                                <div className="proposal-block">
+                                  <p className="label">What would make this wrong</p>
+                                  <p className="proposal-risks">{p.risks}</p>
+                                </div>
+                              )}
+                              {p.decision_note && (
+                                <div className="proposal-block">
+                                  <p className="label">Your note on the decision</p>
+                                  <p className="proposal-risks">{p.decision_note}</p>
+                                </div>
+                              )}
+                              <div className="provenance">
+                                {p.confidence && (
+                                  <span className={`badge ${CONF_BADGE[p.confidence] || "badge-neutral"}`}>
+                                    {p.confidence} confidence
+                                  </span>
+                                )}
+                                {p.model && <span className="badge badge-neutral">{p.model}</span>}
+                                {p.snapshot_refs?.length > 0 && (
+                                  <span className="badge badge-neutral" title={p.snapshot_refs.join(", ")}>
+                                    {p.snapshot_refs.length} snapshot{p.snapshot_refs.length > 1 ? "s" : ""}
+                                  </span>
+                                )}
+                                {p.backtest_run_id && (
+                                  <span className="badge badge-neutral" title={p.backtest_run_id}>
+                                    backtest {p.backtest_run_id.slice(0, 8)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })}
               </tbody>

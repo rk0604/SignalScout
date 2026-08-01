@@ -1,0 +1,54 @@
+.trace-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.trace { list-style: none; margin: 0; padding: 0 0 0 6px; position: relative; }
+
+/* Connector running through the dots, so the steps read as one sequence. */
+.trace::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 12px;
+  bottom: 12px;
+  width: 1px;
+  background: var(--border);
+}
+
+.trace-step {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 0 7px 24px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.trace-dot {
+  position: absolute;
+  left: 1px;
+  top: 12px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--border-str);
+}
+/* A commissioned backtest is the step that matters most — it is the agent
+   generating new evidence rather than reading what was already there. */
+.trace-step.is-test .trace-dot { border-color: var(--primary); background: var(--primary); }
+.trace-step.is-done .trace-dot { border-color: var(--accent); background: var(--accent); }
+.trace-step.is-failed .trace-dot { border-color: var(--down); background: var(--down); }
+
+.trace-n { color: var(--faint); font-size: 11px; min-width: 1.2em; }
+.trace-label { font-weight: 600; }
+.trace-step.is-test .trace-label { color: var(--primary-dark); }
+.trace-detail { color: var(--muted); font-size: 12px; }
+.trace-outcome { font-size: 12px; }
+.trace-outcome.up { color: var(--up); }
+.trace-outcome.down { color: var(--down); }
+.trace-outcome.flat { color: var(--faint); }
+.trace-ms { margin-left: auto; color: var(--faint); font-size: 11px; }
+
+@media (max-width: 620px) {
+  .trace-ms { display: none; }
+}

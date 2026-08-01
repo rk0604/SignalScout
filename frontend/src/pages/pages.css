@@ -138,12 +138,87 @@
 
 /* ----------------------------------------------------------- backtest -- */
 
-.bt-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-.bt-field { display: flex; flex-direction: column; gap: 5px; min-width: 190px; }
+.bt-form { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.bt-field { display: flex; flex-direction: column; gap: 5px; min-width: 190px; flex: 1 1 190px; }
+.bt-field-wide { flex: 1 1 320px; min-width: 260px; }
+.field-hint { font-size: 11px; color: var(--faint); line-height: 1.35; }
+
+.bt-check { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); min-height: 38px; }
+.bt-check input { width: 16px; height: 16px; accent-color: var(--primary); }
+
+.bt-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.bt-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+
+/* Strategy ladder: ordered by complexity, so the row reads as a progression
+   from a plain chart rule to what a systematic desk actually runs. */
+.strat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+.strat-card {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.strat-card:hover { border-color: var(--border-str); }
+.strat-card.is-active {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+.strat-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; }
+.strat-level {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  color: var(--primary); background: var(--primary-soft);
+  border-radius: 999px; padding: 2px 7px;
+}
+.strat-card.is-active .strat-level { background: #fff; }
+.strat-name { font-size: 13px; font-weight: 650; margin: 0; line-height: 1.3; }
+.strat-family { font-size: 11px; color: var(--muted); margin: 3px 0 0; }
+.strat-summary {
+  margin: 14px 0 0; font-size: 13px; color: var(--muted); line-height: 1.5;
+  border-left: 2px solid var(--border-str); padding-left: 12px;
+}
 
 .bt-summary-body { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .bt-verdict { font-size: 17px; font-weight: 650; margin: 4px 0 0; }
 .bt-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.bt-params {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  padding: 10px 16px 14px; border-top: 1px solid var(--border);
+}
+.bt-param {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  background: var(--surface-2); border-radius: 999px; padding: 3px 10px; font-size: 12px;
+}
+.bt-note-wrap { padding: 0 16px 16px; }
+
+/* Human note on a backtest run */
+.run-note { display: flex; flex-direction: column; gap: 8px; }
+.run-note-input { resize: vertical; min-height: 62px; font: inherit; }
+.run-note-actions { display: flex; align-items: center; gap: 12px; }
+.run-note-hint { font-size: 12px; color: var(--faint); }
+
+/* Agent run controls */
+.agent-controls { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.agent-control { display: flex; flex-direction: column; gap: 4px; min-width: 150px; }
+.agent-mode-hint { font-size: 12px; color: var(--muted); margin: -6px 0 16px; }
+
+/* Disclosure affordance on clickable table rows */
+.disclose { font-size: 12px; font-weight: 600; color: var(--primary); white-space: nowrap; }
+
+/* Saved reasoning shown inside an expanded decision/activity row */
+.reasoning { padding: 4px 2px 8px; max-width: 900px; }
+.payload-raw { margin-top: 10px; }
+.payload-raw summary {
+  cursor: pointer; font-size: 12px; color: var(--muted);
+  font-weight: 600; user-select: none;
+}
 
 .disclaimer { font-size: 12px; color: var(--muted); margin: 0 0 16px; }
 

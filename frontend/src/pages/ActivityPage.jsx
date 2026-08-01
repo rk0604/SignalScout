@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, Fragment } from "react";
+import PropTypes from "prop-types";
 import api, { isLoggedIn } from "../api/client";
 import "./pages.css";
 
@@ -18,7 +19,8 @@ const GROUPS = [
 ];
 
 const MEMBERS = {
-  agent: ["agent_propose", "agent_approve", "agent_reject", "agent_execute", "agent_execute_failed"],
+  agent: ["agent_propose", "agent_approve", "agent_reject", "agent_execute",
+          "agent_execute_failed", "agent_tool_call"],
   trade: ["buy", "buy_new", "sell"],
   auth: ["register", "login", "login_failed"],
   watchlist: ["pin", "unpin"],
@@ -33,6 +35,7 @@ const ACTION_META = {
   buy:                 ["badge-up",      "Bought"],
   buy_new:             ["badge-up",      "Opened position"],
   sell:                ["badge-down",    "Sold"],
+  agent_tool_call:     ["badge-neutral", "Agent used a tool"],
   agent_propose:       ["badge-info",    "Agent proposed"],
   agent_approve:       ["badge-up",      "Approved"],
   agent_reject:        ["badge-neutral", "Rejected"],
@@ -41,7 +44,36 @@ const ACTION_META = {
   recs_snapshot:       ["badge-neutral", "Data snapshot"],
   signals_generated:   ["badge-info",    "Signals generated"],
   backtest_run:        ["badge-info",    "Backtest run"],
+  backtest_note:       ["badge-neutral", "Backtest note"],
 };
+
+/* Fields that hold the agent's reasoning. When a payload carries them, the
+   detail row renders them as prose rather than leaving them buried in JSON. */
+function Reasoning({ payload }) {
+  const { rationale, evidence_used, risks } = payload || {};
+  if (!rationale && !evidence_used?.length && !risks) return null;
+  return (
+    <div className="reasoning">
+      {rationale && <p className="proposal-rationale">{rationale}</p>}
+      {evidence_used?.length > 0 && (
+        <div className="proposal-block">
+          <p className="label">Evidence cited</p>
+          <ul className="evidence">
+            {evidence_used.map((e, i) => <li key={i}>{e}</li>)}
+          </ul>
+        </div>
+      )}
+      {risks && (
+        <div className="proposal-block">
+          <p className="label">What would make this wrong</p>
+          <p className="proposal-risks">{risks}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+Reasoning.propTypes = { payload: PropTypes.object };
 
 export default function ActivityPage() {
   const [entries, setEntries] = useState([]);
@@ -142,7 +174,13 @@ export default function ActivityPage() {
                       {open && (
                         <tr className="detail-row">
                           <td colSpan={5}>
-                            <pre className="payload">{JSON.stringify(e.payload, null, 2)}</pre>
+                            {/* Agent decisions carry the reasoning; show it as
+                                prose, with the raw record still available below. */}
+                            <Reasoning payload={e.payload} />
+                            <details className="payload-raw">
+                              <summary>Raw record</summary>
+                              <pre className="payload">{JSON.stringify(e.payload, null, 2)}</pre>
+                            </details>
                             {e.request_id && (
                               <p className="label">Request {e.request_id}</p>
                             )}

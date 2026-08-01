@@ -4,6 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceDot,
 } from "recharts";
 import api from "../../api/client";
+import { subscribeQuote } from "../../api/realtime";
 import { usd, signed, toneClass } from "../../lib/format";
 import "./stockDetail.css";
 
@@ -23,6 +24,7 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
   const [fundamentals, setFundamentals] = useState(null);
   const [risk, setRisk] = useState(null);
   const [news, setNews] = useState(null);
+  const [livePrice, setLivePrice] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
@@ -32,6 +34,7 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
 
   const reset = () => {
     setChart(null); setFundamentals(null); setRisk(null); setNews(null);
+    setLivePrice(null);
     setErrors({}); setTradeMsg(null); setTrade({ price: "", num_shares: "" });
   };
 
@@ -40,11 +43,13 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
     const errs = {};
 
     // Each panel fails independently — one rate-limited endpoint shouldn't
-    // blank the whole drawer.
-    const [c, f, r] = await Promise.allSettled([
+    // blank the whole drawer. News is loaded here too so the sentiment panel
+    // fills in without a manual click.
+    const [c, f, r, n] = await Promise.allSettled([
       api.get("/get-chart-data", { params: { stock: symbol } }),
       api.post("/fetch-stock-data", { ticker: symbol }),
       api.post("/fetch-risk-anal", { stock: symbol }),
+      api.get("/get-sentiment-analysis", { params: { stock: symbol } }),
     ]);
 
     if (c.status === "fulfilled") setChart(c.value.data);
@@ -56,6 +61,9 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
     if (r.status === "fulfilled") setRisk(r.value.data);
     else errs.risk = r.reason?.response?.data?.error || "Risk metrics unavailable";
 
+    if (n.status === "fulfilled") setNews(n.value.data);
+    else errs.news = n.reason?.response?.data?.error || "No news found";
+
     setErrors(errs);
     setLoading(false);
   }, []);
@@ -66,6 +74,16 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
     loadAll(ticker);
   }, [ticker, loadAll]);
 
+  // Live header price. The socket pushes last price only, so this ticks the
+  // number at the top; the chart, risk, fundamentals and news stay as fetched.
+  useEffect(() => {
+    if (!ticker) return;
+    const unsub = subscribeQuote(ticker, (q) => {
+      if (q.price != null) setLivePrice(q.price);
+    });
+    return unsub;
+  }, [ticker]);
+
   // Close on Escape
   useEffect(() => {
     if (!ticker) return;
@@ -73,15 +91,6 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [ticker, onClose]);
-
-  const loadNews = async () => {
-    try {
-      const res = await api.get("/get-sentiment-analysis", { params: { stock: ticker } });
-      setNews(res.data);
-    } catch (err) {
-      setErrors((p) => ({ ...p, news: err.response?.data?.error || "No news found" }));
-    }
-  };
 
   const submitTrade = async (e) => {
     e.preventDefault();
@@ -104,6 +113,8 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
   if (!ticker) return null;
 
   const latestSignal = chart?.signals?.length ? chart.signals[chart.signals.length - 1] : null;
+  const headerPrice = livePrice ?? risk?.latest_price;
+  const overall = news?.overall_sentiment;
   const fin = fundamentals?.financials || {};
   const latestYear = Object.keys(fin).sort().pop();
   const latest = latestYear ? fin[latestYear] : null;
@@ -116,8 +127,8 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
         <header className="drawer-head">
           <div>
             <h2 className="drawer-ticker">{ticker}</h2>
-            {risk?.latest_price != null && (
-              <p className="drawer-price num">{usd(risk.latest_price)}</p>
+            {headerPrice != null && (
+              <p className="drawer-price num">{usd(headerPrice)}</p>
             )}
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
@@ -126,6 +137,9 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
         {loading && <div className="loading-bar" />}
 
         <div className="drawer-body">
+         <div className="drawer-grid">
+          {/* ============ left column: price, risk, fundamentals ============ */}
+          <div className="drawer-col">
           {/* ---- price + moving averages ---- */}
           <section className="panel">
             <div className="panel-head">
@@ -211,36 +225,58 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
               </div>
             ) : <p className="panel-note">Loading…</p>}
           </section>
+          </div>{/* /left column */}
 
+          {/* ============ right column: sentiment + trade ============ */}
+          <div className="drawer-col">
           {/* ---- news sentiment ---- */}
           <section className="panel">
             <div className="panel-head">
               <h3>News sentiment</h3>
-              {!news && <button className="btn btn-ghost btn-sm" onClick={loadNews}>Load news</button>}
-              {news?.overall_sentiment && (
+              {overall && (
                 <span className={`badge ${
-                  news.overall_sentiment.label === "positive" ? "badge-up"
-                  : news.overall_sentiment.label === "negative" ? "badge-down" : "badge-neutral"}`}>
-                  {news.overall_sentiment.label} {signed(news.overall_sentiment.polarity)}
+                  overall.label === "positive" ? "badge-up"
+                  : overall.label === "negative" ? "badge-down" : "badge-neutral"}`}>
+                  {overall.label} {signed(overall.polarity)}
                 </span>
               )}
             </div>
             {errors.news ? (
               <p className="panel-error">{errors.news}</p>
             ) : news?.news?.length ? (
-              <ul className="news-list">
-                {news.news.map((n, i) => (
-                  <li key={i}>
-                    <span className={`news-score num ${toneClass(n.sentiment?.polarity)}`}>
-                      {signed(n.sentiment?.polarity)}
-                    </span>
-                    <a href={n.link} target="_blank" rel="noopener noreferrer">{n.headline}</a>
-                  </li>
-                ))}
-              </ul>
+              <>
+                {overall && (overall.positive + overall.neutral + overall.negative) > 0 && (
+                  <div className="senti-breakdown">
+                    <div className="senti-bar" role="img"
+                         aria-label={`${overall.positive} positive, ${overall.neutral} neutral, ${overall.negative} negative headlines`}>
+                      {overall.positive > 0 && <span className="pos" style={{ flex: overall.positive }} />}
+                      {overall.neutral > 0 && <span className="neu" style={{ flex: overall.neutral }} />}
+                      {overall.negative > 0 && <span className="neg" style={{ flex: overall.negative }} />}
+                    </div>
+                    <div className="senti-counts">
+                      <span className="pos"><span className="dot" />{overall.positive} positive</span>
+                      <span className="neu"><span className="dot" />{overall.neutral} neutral</span>
+                      <span className="neg"><span className="dot" />{overall.negative} negative</span>
+                    </div>
+                  </div>
+                )}
+                <ul className="news-list">
+                  {news.news.map((n, i) => (
+                    <li key={i}>
+                      <span className={`news-score num ${toneClass(n.sentiment?.polarity)}`}>
+                        {signed(n.sentiment?.polarity)}
+                      </span>
+                      <a href={n.link} target="_blank" rel="noopener noreferrer">{n.headline}</a>
+                    </li>
+                  ))}
+                </ul>
+                <p className="panel-note">
+                  {news.news.length} headline{news.news.length > 1 ? "s" : ""} · lexicon-based, approximate.
+                </p>
+              </>
             ) : (
               <p className="panel-note">
-                Headline sentiment is lexicon-based and approximate.
+                {loading ? "Loading…" : "No recent headlines found."}
               </p>
             )}
           </section>
@@ -273,6 +309,8 @@ export default function StockDetail({ ticker, onClose, onChanged }) {
               <p className="panel-note">Use a negative share count to record a sale.</p>
             </form>
           </section>
+          </div>{/* /right column */}
+         </div>{/* /drawer-grid */}
         </div>
       </aside>
     </>

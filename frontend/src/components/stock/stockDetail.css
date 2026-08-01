@@ -11,7 +11,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(560px, 100vw);
+  width: min(75vw, 1600px);
   background: var(--bg);
   border-left: 1px solid var(--border);
   box-shadow: -8px 0 24px rgba(15, 23, 42, 0.08);
@@ -41,9 +41,26 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px 20px 32px;
+}
+
+/* Two-column layout uses the extra width so the panels don't stack into one
+   very tall scroll. Each column is its own flex stack of panels; the whole
+   body still scrolls if a column runs long. */
+.drawer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 14px;
+}
+.drawer-col {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-width: 0; /* let the chart's ResponsiveContainer shrink inside the grid */
+}
+
+@media (max-width: 900px) {
+  .drawer-grid { grid-template-columns: 1fr; }
 }
 
 .panel {
@@ -72,8 +89,43 @@
 }
 .kv-grid p { margin: 2px 0 0; font-size: 14px; font-weight: 600; }
 
+/* sentiment breakdown: a compact positive/neutral/negative summary above the list */
+.senti-breakdown { margin: 0 0 12px; }
+.senti-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.senti-bar span { display: block; height: 100%; }
+.senti-bar .pos { background: var(--up); }
+.senti-bar .neu { background: var(--border-str); }
+.senti-bar .neg { background: var(--down); }
+.senti-counts {
+  display: flex;
+  gap: 14px;
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.senti-counts .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+.senti-counts .pos .dot { background: var(--up); }
+.senti-counts .neu .dot { background: var(--border-str); }
+.senti-counts .neg .dot { background: var(--down); }
+
 /* news */
-.news-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.news-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* Own scroll area so a long list doesn't push the trade form off-screen */
+  max-height: 340px;
+  overflow-y: auto;
+}
 .news-list li { display: flex; gap: 10px; align-items: baseline; font-size: 13px; }
 .news-score { flex: 0 0 auto; min-width: 3.4em; font-weight: 600; font-size: 12px; }
 
