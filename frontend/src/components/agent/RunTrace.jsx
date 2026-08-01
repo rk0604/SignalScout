@@ -39,43 +39,60 @@ function stepDetail(step) {
   return args.ticker || "";
 }
 
+/* Render from the backend's structured summary when present. Older runs
+   predate it, so fall back to parsing the stored digest — which is truncated
+   and may not parse, hence the guarded fallback rather than relying on it. */
 function Outcome({ step }) {
+  const s = step.summary;
+
+  if (s) {
+    switch (s.kind) {
+      case "backtest": {
+        const beat = s.beat_benchmark;
+        return (
+          <span className={`trace-outcome ${beat ? "up" : "down"}`}>
+            {s.total_return_pct != null ? `${s.total_return_pct.toFixed(1)}%` : "—"}
+            {s.benchmark_return_pct != null &&
+              ` vs ${s.benchmark_return_pct.toFixed(1)}% benchmark`}
+            {beat != null && (beat ? " · beat" : " · underperformed")}
+          </span>
+        );
+      }
+      case "signals":
+        return (
+          <span className="trace-outcome flat">
+            {s.count
+              ? `${s.count} signals · latest ${s.latest_signal} ${s.latest_date}`
+              : "no crossovers"}
+          </span>
+        );
+      case "sentiment":
+        return <span className="trace-outcome flat">{s.label} · {s.headline_count} headlines</span>;
+      case "quote":
+        return <span className="trace-outcome flat">${Number(s.price).toFixed(2)}</span>;
+      case "holdings":
+        return <span className="trace-outcome flat">{s.count} positions</span>;
+      case "strategies":
+        return <span className="trace-outcome flat">{s.count} strategies</span>;
+      case "note":
+        return <span className="trace-outcome flat">{s.text}</span>;
+      case "error":
+        return <span className="trace-outcome down">{s.message}</span>;
+      default:
+        return null;
+    }
+  }
+
   const parsed = parseResult(step.result);
   if (!parsed) return null;
-
-  if (step.tool === "run_backtest" && parsed.metrics) {
-    const m = parsed.metrics;
-    const beat = m.beat_benchmark;
-    return (
-      <span className={`trace-outcome ${beat ? "up" : "down"}`}>
-        {m.total_return_pct != null ? `${m.total_return_pct.toFixed(1)}%` : "—"}
-        {parsed.benchmark?.total_return_pct != null &&
-          ` vs ${parsed.benchmark.total_return_pct.toFixed(1)}% benchmark`}
-        {beat != null && (beat ? " · beat" : " · underperformed")}
-      </span>
-    );
-  }
   if (parsed.error) return <span className="trace-outcome down">{parsed.error}</span>;
   if (parsed.note) return <span className="trace-outcome flat">{parsed.note}</span>;
-  if (step.tool === "get_signals" && Array.isArray(parsed.signals)) {
-    const last = parsed.signals[parsed.signals.length - 1];
+  if (step.tool === "run_backtest" && parsed.metrics?.total_return_pct != null) {
     return (
-      <span className="trace-outcome flat">
-        {parsed.signals.length
-          ? `${parsed.signals.length} signals · latest ${last.signal} ${last.date}`
-          : "no crossovers"}
+      <span className={`trace-outcome ${parsed.metrics.beat_benchmark ? "up" : "down"}`}>
+        {parsed.metrics.total_return_pct.toFixed(1)}%
       </span>
     );
-  }
-  if (step.tool === "get_sentiment" && parsed.overall_sentiment) {
-    const s = parsed.overall_sentiment;
-    return <span className="trace-outcome flat">{s.label} · {s.headline_count} headlines</span>;
-  }
-  if (step.tool === "get_quote" && parsed.price != null) {
-    return <span className="trace-outcome flat">${parsed.price.toFixed(2)}</span>;
-  }
-  if (step.tool === "get_holdings" && Array.isArray(parsed.holdings)) {
-    return <span className="trace-outcome flat">{parsed.holdings.length} positions</span>;
   }
   return null;
 }

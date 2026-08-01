@@ -416,10 +416,19 @@ def run_agentic(evidence_json, execute_tool, model=None, max_iterations=MAX_ITER
                 ok = False
             elapsed = int((time.monotonic() - started) * 1000)
 
+            # The executor may attach a small structured summary for the UI.
+            # It is popped before the result reaches the model: the raw output
+            # is what the agent reasons over, the summary is only for display,
+            # and the stored digest is truncated so it cannot be relied on.
+            summary = None
+            if isinstance(output, dict):
+                summary = output.pop("_trace_summary", None)
+
             trace.append({
                 "step": steps,
                 "tool": block.name,
                 "args": block.input,
+                "summary": summary,
                 "result": _digest(output),
                 "ok": ok,
                 "ms": elapsed,

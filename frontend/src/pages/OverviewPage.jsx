@@ -57,7 +57,11 @@ export default function OverviewPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const tickers = useMemo(() => (data?.positions || []).map((p) => p.ticker), [data]);
+  // Keyed on the ticker set, not on `data`. Live quotes call setData on every
+  // tick, so memoising against `data` handed the effect below a new array
+  // identity each time and made it unsubscribe and resubscribe on every quote.
+  const tickerKey = (data?.positions || []).map((p) => p.ticker).join(",");
+  const tickers = useMemo(() => (tickerKey ? tickerKey.split(",") : []), [tickerKey]);
 
   // Live quotes patch prices in place and recompute the affected numbers, so
   // the page updates without a full refetch.

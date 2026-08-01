@@ -1108,8 +1108,14 @@ def build_agent_tools(email):
         if snapshot_id and snapshot_id not in state["snapshot_refs"]:
             state["snapshot_refs"].append(snapshot_id)
 
+    # Each tool attaches a compact `_trace_summary` for the run-trace UI. The
+    # stored trace digest is truncated, so parsing it back would silently fail
+    # on longer results; this gives the UI a small, guaranteed-intact record.
     def tool_list_strategies(_args):
-        return {"strategies": [
+        return {"_trace_summary": {
+                    "kind": "strategies",
+                    "count": len(backtesting.STRATEGY_SPECS)},
+                "strategies": [
             {
                 "id": key,
                 "label": spec["label"],
@@ -1145,6 +1151,15 @@ def build_agent_tools(email):
         for ref in result.get("snapshot_refs") or []:
             _remember_snapshot(ref)
         return {
+            "_trace_summary": {
+                "kind": "backtest",
+                "backtest_run_id": run_id,
+                "strategy": result["strategy"],
+                "target": ", ".join(result["universe"]),
+                "total_return_pct": result["metrics"].get("total_return_pct"),
+                "benchmark_return_pct": result["benchmark_metrics"].get("total_return_pct"),
+                "beat_benchmark": result["metrics"].get("beat_benchmark"),
+            },
             "backtest_run_id": run_id,
             "strategy": result["strategy"],
             "params": result["params"],
@@ -1170,7 +1185,8 @@ def build_agent_tools(email):
                 "last_quote": last,
                 "prev_close": prev,
             })
-        return {"holdings": out}
+        return {"_trace_summary": {"kind": "holdings", "count": len(out)},
+                "holdings": out}
 
     def tool_get_quote(args):
         ticker = (args.get("ticker") or "").upper().strip()
@@ -1180,6 +1196,7 @@ def build_agent_tools(email):
         if last is None:
             return {"ticker": ticker, "error": "No quote available"}
         return {
+            "_trace_summary": {"kind": "quote", "ticker": ticker, "price": last},
             "ticker": ticker, "price": last, "prev_close": prev,
             "change_pct": ((last - prev) / prev * 100) if prev else None,
         }
@@ -1188,18 +1205,32 @@ def build_agent_tools(email):
         ticker = (args.get("ticker") or "").upper().strip()
         snap, snap_id = get_snapshot("price", ticker=ticker, max_age_seconds=7 * 24 * 3600)
         if not isinstance(snap, dict):
-            return {"ticker": ticker, "signals": [], "note": "No stored price data for this ticker."}
+            return {"_trace_summary": {"kind": "note", "text": "no stored price data"},
+                    "ticker": ticker, "signals": [],
+                    "note": "No stored price data for this ticker."}
         _remember_snapshot(snap_id)
-        return {"ticker": ticker, "signals": (snap.get("signals") or [])[-5:],
-                "snapshot_ref": snap_id}
+        signals = (snap.get("signals") or [])[-5:]
+        latest = signals[-1] if signals else None
+        return {"_trace_summary": {
+                    "kind": "signals", "count": len(signals),
+                    "latest_signal": latest.get("signal") if latest else None,
+                    "latest_date": latest.get("date") if latest else None},
+                "ticker": ticker, "signals": signals, "snapshot_ref": snap_id}
 
     def tool_get_sentiment(args):
         ticker = (args.get("ticker") or "").upper().strip()
         snap, snap_id = get_snapshot("sentiment", ticker=ticker, max_age_seconds=7 * 24 * 3600)
         if not isinstance(snap, dict):
-            return {"ticker": ticker, "note": "No stored sentiment for this ticker."}
+            return {"_trace_summary": {"kind": "note", "text": "no stored sentiment"},
+                    "ticker": ticker, "note": "No stored sentiment for this ticker."}
         _remember_snapshot(snap_id)
+        overall = snap.get("overall_sentiment") or {}
         return {
+            "_trace_summary": {
+                "kind": "sentiment",
+                "label": overall.get("label"),
+                "headline_count": overall.get("headline_count"),
+            },
             "ticker": ticker,
             "overall_sentiment": snap.get("overall_sentiment"),
             "headlines": [n.get("headline") for n in (snap.get("news") or [])[:8]],
@@ -1224,7 +1255,8 @@ def build_agent_tools(email):
         except BacktestError as e:
             # A rejected backtest is useful information for the agent: it can
             # correct the parameters and try again rather than the run failing.
-            return {"error": str(e), **e.extra}
+            return {"_trace_summary": {"kind": "error", "message": str(e)[:120]},
+                    "error": str(e), **e.extra}
 
     return execute, state
 
@@ -1313,11 +1345,17 @@ def agent_propose():
     created = []
     for p in result["proposals"]:
         ticker = (p.get("ticker") or "").upper()
-        # Prefer a backtest the agent ran on this very ticker; fall back to the
-        # last one it ran, then to the user's most recent.
-        backtest_id = (tool_state["backtest_ids"].get(ticker)
-                       or tool_state["last_backtest_id"]
-                       or evidence["latest_backtest_id"])
+        # Only cite a backtest that actually covers this ticker. Falling back to
+        # whatever was run last would attach an AAPL backtest to an NVDA
+        # proposal — worse than citing nothing, because it looks like evidence.
+        backtest_id = tool_state["backtest_ids"].get(ticker)
+        if not backtest_id:
+            prior = (BacktestRun.query
+                     .filter_by(actor_email=email)
+                     .filter(BacktestRun.universe.contains([ticker]))
+                     .order_by(BacktestRun.created_at.desc())
+                     .first())
+            backtest_id = prior.id if prior else None
         row = AgentProposal(
             actor_email=email,
             ticker=ticker,
